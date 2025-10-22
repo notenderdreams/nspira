@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
 use crate::db::add_project;
+use std::path::{Path, PathBuf};
 
-pub fn run(project_name:&str, cache_dir:PathBuf) ->anyhow::Result<()>{
+pub fn run(project_name: &str, cache_dir: PathBuf) -> anyhow::Result<()> {
     let project_dir = cache_dir.parent().unwrap_or_else(|| Path::new("."));
 
     let _ = add_project(
@@ -12,5 +12,4 @@ pub fn run(project_name:&str, cache_dir:PathBuf) ->anyhow::Result<()>{
 
     println!("New project created.");
     Ok(())
-
 }

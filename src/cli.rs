@@ -37,7 +37,9 @@ impl Cli {
 
         match &self.command {
             Commands::Init { path } => crate::commands::init::run(path.clone())?,
-            Commands::Add { name , cache_path } => crate::commands::add::run(name, cache_path.clone())?,
+            Commands::Add { name, cache_path } => {
+                crate::commands::add::run(name, cache_path.clone())?
+            }
             Commands::Clean { id } => crate::commands::clean::run(id.clone())?,
             Commands::Remove { id } => crate::commands::remove::run(id.clone())?,
             Commands::List => crate::commands::list::run()?,
