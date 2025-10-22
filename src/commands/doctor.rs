@@ -11,6 +11,6 @@
 5. Print a concise report to the user.
 */
 
-pub fn run (){
+pub fn run() {
     todo!()
 }

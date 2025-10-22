@@ -1,8 +1,7 @@
-use rusqlite::{params, Connection, Result};
-use std::path::PathBuf;
-use std::fs;
 use chrono::Utc;
-
+use rusqlite::{Connection, Result, params};
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -13,14 +12,18 @@ pub struct Project {
     pub last_cleaned: String,
 }
 
-
 pub fn get_db_path() -> PathBuf {
-    let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    let nspira_dir = dir.join("nspira");
-    if !nspira_dir.exists() {
-        fs::create_dir_all(&nspira_dir).expect("Failed to create nspira data dir");
+    //in dev mode using the current dir
+    if cfg!(debug_assertions) {
+        PathBuf::from("nspira.db")
+    }else {
+        let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+        let nspira_dir = dir.join("nspira");
+        if !nspira_dir.exists() {
+            fs::create_dir_all(&nspira_dir).expect("Failed to create nspira data dir");
+        }
+        nspira_dir.join("nspira.db")
     }
-    nspira_dir.join("nspira.db")
 }
 
 pub fn connect() -> Result<Connection> {
@@ -55,7 +58,8 @@ pub fn add_project(name: &str, path: &str, cache_dir: &str) -> Result<i32> {
 
 pub fn get_project_by_id(id: i32) -> Result<Option<Project>> {
     let conn = connect()?;
-    let mut stmt = conn.prepare("SELECT id, name, path, cache_dir, last_cleaned FROM projects WHERE id = ?1")?;
+    let mut stmt =
+        conn.prepare("SELECT id, name, path, cache_dir, last_cleaned FROM projects WHERE id = ?1")?;
     let project_iter = stmt.query_map(params![id], |row| {
         Ok(Project {
             id: row.get(0)?,
@@ -102,19 +106,16 @@ pub fn update_last_cleaned(id: i32) -> Result<()> {
     Ok(())
 }
 
-
 pub fn remove_project(id: i32) -> Result<()> {
     let conn = connect()?;
     conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
     Ok(())
 }
 
-
 //Helpers
 pub fn project_exists(id: i32) -> Result<bool> {
     Ok(get_project_by_id(id)?.is_some())
 }
-
 
 //Tests
 
@@ -152,19 +153,24 @@ mod tests {
         conn.execute(
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
             params![name, path, cache_dir, last_cleaned],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Get
-        let mut stmt = conn.prepare("SELECT name, path, cache_dir, last_cleaned FROM projects").unwrap();
-        let project_iter = stmt.query_map([], |row| {
-            Ok(Project {
-                id: 0, // id not tested here
-                name: row.get(0)?,
-                path: row.get(1)?,
-                cache_dir: row.get(2)?,
-                last_cleaned: row.get(3)?,
+        let mut stmt = conn
+            .prepare("SELECT name, path, cache_dir, last_cleaned FROM projects")
+            .unwrap();
+        let project_iter = stmt
+            .query_map([], |row| {
+                Ok(Project {
+                    id: 0, // id not tested here
+                    name: row.get(0)?,
+                    path: row.get(1)?,
+                    cache_dir: row.get(2)?,
+                    last_cleaned: row.get(3)?,
+                })
             })
-        }).unwrap();
+            .unwrap();
 
         let projects: Vec<Project> = project_iter.map(|p| p.unwrap()).collect();
         assert_eq!(projects.len(), 1);
@@ -179,19 +185,29 @@ mod tests {
 
         conn.execute(
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
-            params!["Test", "/tmp", "/tmp/cache", "2025-01-01T00:00:00Z"]
-        ).unwrap();
+            params!["Test", "/tmp", "/tmp/cache", "2025-01-01T00:00:00Z"],
+        )
+        .unwrap();
 
-        let id: i32 = conn.query_row("SELECT id FROM projects", [], |row| row.get(0)).unwrap();
+        let id: i32 = conn
+            .query_row("SELECT id FROM projects", [], |row| row.get(0))
+            .unwrap();
 
         // Update last_cleaned
         let new_time = Utc::now().to_rfc3339();
         conn.execute(
             "UPDATE projects SET last_cleaned = ?1 WHERE id = ?2",
-            params![new_time, id]
-        ).unwrap();
+            params![new_time, id],
+        )
+        .unwrap();
 
-        let updated: String = conn.query_row("SELECT last_cleaned FROM projects WHERE id = ?1", [id], |row| row.get(0)).unwrap();
+        let updated: String = conn
+            .query_row(
+                "SELECT last_cleaned FROM projects WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(updated, new_time);
     }
 
@@ -201,15 +217,21 @@ mod tests {
 
         conn.execute(
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
-            params!["Test", "/tmp", "/tmp/cache", "2025-01-01T00:00:00Z"]
-        ).unwrap();
+            params!["Test", "/tmp", "/tmp/cache", "2025-01-01T00:00:00Z"],
+        )
+        .unwrap();
 
-        let id: i32 = conn.query_row("SELECT id FROM projects", [], |row| row.get(0)).unwrap();
+        let id: i32 = conn
+            .query_row("SELECT id FROM projects", [], |row| row.get(0))
+            .unwrap();
 
         // Remove
-        conn.execute("DELETE FROM projects WHERE id = ?1", [id]).unwrap();
+        conn.execute("DELETE FROM projects WHERE id = ?1", [id])
+            .unwrap();
 
-        let count: i32 = conn.query_row("SELECT COUNT(*) FROM projects", [], |row| row.get(0)).unwrap();
+        let count: i32 = conn
+            .query_row("SELECT COUNT(*) FROM projects", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 0);
     }
 }
