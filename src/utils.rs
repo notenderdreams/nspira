@@ -116,3 +116,11 @@ mod tests {
         fs::remove_dir_all("test_cache2").unwrap();
     }
 }
+
+
+pub fn clean_dir(path: &str) -> anyhow::Result<()> {
+    if fs::metadata(path).is_ok() {
+        fs::remove_dir_all(path)?;
+    }
+    Ok(())
+}
