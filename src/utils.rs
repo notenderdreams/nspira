@@ -14,7 +14,7 @@ struct ProjectDisplay {
 }
 
 
-fn get_dir_size(path: &str) -> u64 {
+pub fn get_dir_size(path: &str) -> u64 {
     let mut size = 0;
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
@@ -31,7 +31,7 @@ fn get_dir_size(path: &str) -> u64 {
     size
 }
 
-fn format_date(date_str: &str) -> String {
+pub fn format_date(date_str: &str) -> String {
     if let Ok(dt) = DateTime::parse_from_rfc3339(date_str) {
         dt.date().naive_local().to_string() // "YYYY-MM-DD"
     } else if let Ok(naive) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
@@ -43,7 +43,7 @@ fn format_date(date_str: &str) -> String {
 
 
 
-fn human_readable_size(bytes: u64) -> String {
+pub fn human_readable_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
     const GB: u64 = MB * 1024;
