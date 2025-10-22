@@ -68,7 +68,7 @@ pub fn print_projects(projects: Vec<Project>) {
         })
         .collect();
 
-    let table = Table::new(display).with(Style::modern()).to_string();
+    let table = Table::new(display).with(Style::rounded()).to_string();
     println!("{}", table);
 }
 
