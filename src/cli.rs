@@ -38,6 +38,7 @@ impl Cli {
             Commands::Init { path } => crate::commands::init::run(path.clone())?,
             // Commands::Clean { id } => crate::commands::clean::run(id.clone())?,
             Commands::Remove { id } => crate::commands::remove::run(id.clone())?,
+            Commands::List=>crate::commands::list::run()?,
             _ => {}
         }
 
