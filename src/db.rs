@@ -16,7 +16,7 @@ pub fn get_db_path() -> PathBuf {
     //in dev mode using the current dir
     if cfg!(debug_assertions) {
         PathBuf::from("nspira.db")
-    }else {
+    } else {
         let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
         let nspira_dir = dir.join("nspira");
         if !nspira_dir.exists() {

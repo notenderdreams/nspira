@@ -12,6 +12,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     Init { path: Option<PathBuf> },
+    Add { name: String, cache_path: PathBuf },
     Clean { id: Option<i32> },
     Remove { id: i32 },
     List,
@@ -36,10 +37,11 @@ impl Cli {
 
         match &self.command {
             Commands::Init { path } => crate::commands::init::run(path.clone())?,
+            Commands::Add { name , cache_path } => crate::commands::add::run(name, cache_path.clone())?,
             Commands::Clean { id } => crate::commands::clean::run(id.clone())?,
             Commands::Remove { id } => crate::commands::remove::run(id.clone())?,
-            Commands::List=>crate::commands::list::run()?,
-            Commands::Stats=>crate::commands::stats::run()?,
+            Commands::List => crate::commands::list::run()?,
+            Commands::Stats => crate::commands::stats::run()?,
             _ => {}
         }
 

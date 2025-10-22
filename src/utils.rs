@@ -1,18 +1,17 @@
-use std::fs;
+use crate::db::Project;
 use chrono::{DateTime, NaiveDate};
+use std::fs;
 use tabled::settings::Style;
 use tabled::{Table, Tabled};
-use crate::db::Project;
 
 #[derive(Tabled)]
 struct ProjectDisplay {
-    id:i32,
+    id: i32,
     name: String,
     cache_path: String,
     size: String,
     last_cleaned: String,
 }
-
 
 pub fn get_dir_size(path: &str) -> u64 {
     let mut size = 0;
@@ -41,8 +40,6 @@ pub fn format_date(date_str: &str) -> String {
     }
 }
 
-
-
 pub fn human_readable_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
@@ -59,8 +56,6 @@ pub fn human_readable_size(bytes: u64) -> String {
     }
 }
 
-
-
 pub fn print_projects(projects: Vec<Project>) {
     let display: Vec<ProjectDisplay> = projects
         .into_iter()
@@ -73,12 +68,9 @@ pub fn print_projects(projects: Vec<Project>) {
         })
         .collect();
 
-    let table = Table::new(display)
-        .with(Style::modern())
-        .to_string();
+    let table = Table::new(display).with(Style::modern()).to_string();
     println!("{}", table);
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -116,7 +108,6 @@ mod tests {
         fs::remove_dir_all("test_cache2").unwrap();
     }
 }
-
 
 pub fn clean_dir(path: &str) -> anyhow::Result<()> {
     if fs::metadata(path).is_ok() {
