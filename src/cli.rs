@@ -3,7 +3,23 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "nspira", about = "Manage projects and caches easily")]
+#[command(
+    name = "nspira",
+    version,
+    // about = "🌿 Lightweight cache manager for developers",
+    before_help = r#"
+    ┌─────────────────────────────┐
+    │     🌿  n s p i r a  🌿     │
+    └─────────────────────────────┘
+Lightweight cache manager for developers
+    "#,
+    after_help = "Examples:\n  \
+                  nspira init           Auto-detect project in current directory\n  \
+                  nspira list           Show all tracked caches\n  \
+                  nspira clean          Clean all caches safely\n  \
+                  nspira stats          View storage statistics"
+
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
