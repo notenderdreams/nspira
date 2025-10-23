@@ -102,7 +102,14 @@ View storage statistics:
 ```bash
 nspira stats
 ```
-
+```
+╭─────────────────────────────────────╮
+│  Cache Statistics                   │
+├─────────────────────────────────────┤
+│  Projects tracked  │              3 │
+│  Total cache size  │      986.36 MB │
+╰─────────────────────────────────────╯
+```
 ---
 
 ## 📂 Database Location
