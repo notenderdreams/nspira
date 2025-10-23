@@ -13,13 +13,18 @@ pub fn run() -> anyhow::Result<()> {
 
     println!();
     println!("╭─────────────────────────────────────╮");
-    println!("│  {}                   │", "Cache Statistics".bright_blue());
+    println!(
+        "│  {}                   │",
+        "Cache Statistics".bright_blue()
+    );
     println!("├─────────────────────────────────────┤");
     println!("│  Projects tracked  │ {:>14} │", project_count);
-    println!("│  Total cache size  │ {:>14} │", human_readable_size(total_storage_occupied));
+    println!(
+        "│  Total cache size  │ {:>14} │",
+        human_readable_size(total_storage_occupied)
+    );
     println!("╰─────────────────────────────────────╯");
     println!();
 
     Ok(())
 }
-

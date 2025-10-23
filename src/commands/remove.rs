@@ -1,5 +1,5 @@
+use crate::db::{project_exists, remove_project};
 use crate::utils::logger::{error, success};
-use crate::db::{project_exists,remove_project};
 
 pub fn run(id: i32) -> anyhow::Result<()> {
     if !project_exists(id)? {

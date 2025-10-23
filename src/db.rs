@@ -1,10 +1,10 @@
+use crate::utils::logger::{ask_input, info};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
+use colored::Colorize;
 use rusqlite::{Connection, params};
 use std::fs;
 use std::path::PathBuf;
-use anyhow::{anyhow, Result};
-use colored::Colorize;
-use crate::utils::logger::{ask_input, info};
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -15,7 +15,7 @@ pub struct Project {
     pub last_cleaned: String,
 }
 
-pub fn get_db_path() ->  Result<PathBuf> {
+pub fn get_db_path() -> Result<PathBuf> {
     //in dev mode using the current dir
     if cfg!(debug_assertions) {
         Ok(PathBuf::from("nspira.db"))
@@ -116,12 +116,11 @@ pub fn remove_project(id: i32) -> Result<()> {
 }
 
 pub fn flush_db() -> Result<()> {
-
     let db_path = get_db_path()?;
     if db_path.exists() {
         fs::remove_file(&db_path)?;
         info("Database has been deleted!");
-    }else{
+    } else {
         info("Database does not exists!");
     }
     Ok(())

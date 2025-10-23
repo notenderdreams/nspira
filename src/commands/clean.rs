@@ -1,22 +1,28 @@
-use anyhow::Result;
-use crate::utils::{get_dir_size, human_readable_size};
 use crate::utils::logger::{success, task};
+use crate::utils::{get_dir_size, human_readable_size};
+use anyhow::Result;
 
 pub fn run(id: Option<i32>) -> Result<()> {
     match id {
         Some(pid) => {
             task(&format!("Cleaning cache for project ID {}", pid));
             let size = clean_cache(pid)?;
-            success(&format!("{} freed from the disk",human_readable_size(size)));
+            success(&format!(
+                "{} freed from the disk",
+                human_readable_size(size)
+            ));
         }
         None => {
             task("Cleaning all caches");
             let projects = crate::db::get_all_projects()?;
             let mut size = 0;
             for project in projects {
-               size += clean_cache(project.id)?;
+                size += clean_cache(project.id)?;
             }
-            success(&format!("{} freed from the disk",human_readable_size(size)));
+            success(&format!(
+                "{} freed from the disk",
+                human_readable_size(size)
+            ));
         }
     }
     Ok(())

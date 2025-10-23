@@ -1,8 +1,8 @@
 use crate::db::add_project;
-use std::path::PathBuf;
-use colored::Colorize;
 use crate::utils::logger;
 use crate::utils::logger::{info, success};
+use colored::Colorize;
+use std::path::PathBuf;
 
 pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
     let project_dir = std::env::current_dir()?;
@@ -29,7 +29,10 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         }
 
         if let Some(cache) = detected_cache {
-            info(&format!("{} has been selected as the cache directory", cache.to_str().unwrap().bold()));
+            info(&format!(
+                "{} has been selected as the cache directory",
+                cache.to_str().unwrap().bold()
+            ));
             cache
         } else {
             PathBuf::from(logger::ask_input("Enter cache directory path"))

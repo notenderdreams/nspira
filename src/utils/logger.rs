@@ -8,7 +8,9 @@ pub fn ask_input(prompt: &str) -> String {
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).expect("Failed to read input");
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read input");
     input.trim().to_string()
 }
 
@@ -35,7 +37,6 @@ pub fn error(msg: &str) {
     let label = "ERROR\t:".black().on_bright_red().bold();
     eprintln!("{} {}", label, msg);
 }
-
 
 pub fn task(msg: &str) {
     let label = "TASK:".black().on_bright_magenta().bold();
