@@ -1,5 +1,6 @@
 use crate::db::add_project;
 use std::path::{Path, PathBuf};
+use crate::utils::logger::success;
 
 pub fn run(project_name: &str, cache_dir: PathBuf) -> anyhow::Result<()> {
     let project_dir = cache_dir.parent().unwrap_or_else(|| Path::new("."));
@@ -8,8 +9,8 @@ pub fn run(project_name: &str, cache_dir: PathBuf) -> anyhow::Result<()> {
         project_name,
         project_dir.to_str().unwrap(),
         cache_dir.to_str().unwrap(),
-    );
+    )?;
 
-    println!("New project created.");
+    success("New project created.");
     Ok(())
 }

@@ -1,10 +1,11 @@
 use crate::db::add_project;
-use std::io;
-use std::io::Write;
 use std::path::PathBuf;
+use colored::Colorize;
+use crate::utils::logger;
+use crate::utils::logger::{info, success};
 
 pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir().expect("Failed to get current directory");
+    let project_dir = std::env::current_dir()?;
     let project_name = project_dir
         .file_name()
         .unwrap()
@@ -21,20 +22,17 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         for (iden, cache) in identifier_patterns {
             let iden_path = project_dir.join(iden);
             if iden_path.exists() {
+                info(&format!("{} file found", iden.bold()));
                 detected_cache = Some(project_dir.join(&cache));
                 break;
             }
         }
 
         if let Some(cache) = detected_cache {
+            info(&format!("{} has been selected as the cache directory", cache.to_str().unwrap().bold()));
             cache
         } else {
-            print!("Enter cache directory path :");
-            io::stdout().flush()?;
-            let mut input = String::new();
-
-            io::stdin().read_line(&mut input)?;
-            PathBuf::from(input.trim())
+            PathBuf::from(logger::ask_input("Enter cache directory path :"))
         }
     };
 
@@ -43,9 +41,10 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         &project_name,
         project_dir.to_str().unwrap(),
         cache_dir.to_str().unwrap(),
-    );
+    )?;
 
     //  3. Confirm
-    println!("New project created.");
+    println!();
+    success("New project created.");
     Ok(())
 }

@@ -1,19 +1,20 @@
 use anyhow::Result;
+use crate::utils::logger::{ success, task};
 
 pub fn run(id: Option<i32>) -> Result<()> {
     match id {
         Some(pid) => {
-            println!("Cleaning cache for project ID {}", pid);
+            task(&format!("Cleaning cache for project ID {}", pid));
             clean_cache(pid)?;
-            println!("Cleaned!");
+            success("Cleaned!");
         }
         None => {
-            println!("Cleaning All Projects");
+            task("Cleaning All Projects");
             let projects = crate::db::get_all_projects()?;
             for project in projects {
                 clean_cache(project.id)?;
             }
-            println!("Cleaned!");
+            success("Cleaned!");
         }
     }
     Ok(())
