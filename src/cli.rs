@@ -35,6 +35,7 @@ pub enum Commands {
     List,
     Stats,
     Doctor,
+    Flush,
     // Search{keyword: Option<String>},
     // Export{path: PathBuf},
     // Import{path: PathBuf},
@@ -61,6 +62,7 @@ impl Cli {
             Commands::Remove { id } => crate::commands::remove::run(id.clone())?,
             Commands::List => crate::commands::list::run()?,
             Commands::Stats => crate::commands::stats::run()?,
+            Commands::Flush => crate::commands::flush::run()?,
             _ => {}
         }
 

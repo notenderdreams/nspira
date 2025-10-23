@@ -3,6 +3,8 @@ use rusqlite::{Connection, params};
 use std::fs;
 use std::path::PathBuf;
 use anyhow::{anyhow, Result};
+use colored::Colorize;
+use crate::utils::logger::{ask_input, info};
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -110,6 +112,18 @@ pub fn update_last_cleaned(id: i32) -> Result<()> {
 pub fn remove_project(id: i32) -> Result<()> {
     let conn = connect()?;
     conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn flush_db() -> Result<()> {
+
+    let db_path = get_db_path()?;
+    if db_path.exists() {
+        fs::remove_file(&db_path)?;
+        info("Database has been deleted!");
+    }else{
+        info("Database does not exists!");
+    }
     Ok(())
 }
 
