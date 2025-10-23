@@ -1,5 +1,6 @@
 use crate::db::get_all_projects;
 use crate::utils::{get_dir_size, human_readable_size};
+use colored::Colorize;
 
 pub fn run() -> anyhow::Result<()> {
     let projects = get_all_projects()?;
@@ -10,11 +11,15 @@ pub fn run() -> anyhow::Result<()> {
         total_storage_occupied += get_dir_size(&project.cache_dir);
     }
 
-    println!("Number of projects----:        {}", project_count);
-    println!(
-        "Total storage occupied: {}",
-        human_readable_size(total_storage_occupied)
-    );
+    println!();
+    println!("╭─────────────────────────────────────╮");
+    println!("│  {}                   │", "Cache Statistics".bright_blue());
+    println!("├─────────────────────────────────────┤");
+    println!("│  Projects tracked  │ {:>14} │", project_count);
+    println!("│  Total cache size  │ {:>14} │", human_readable_size(total_storage_occupied));
+    println!("╰─────────────────────────────────────╯");
+    println!();
 
     Ok(())
 }
+
