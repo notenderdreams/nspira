@@ -1,3 +1,6 @@
+<p align="center">
+<img src="./docs/logo.svg" align="center">
+</p>
 <h1 align="center"> 🌿 nspira </h1>
 <p align="center">
 <b>nspira</b> is a lightweight CLI tool that helps you manage and clean cache directories for both development projects and desktop applications.
