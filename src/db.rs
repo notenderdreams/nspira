@@ -1,7 +1,8 @@
 use chrono::Utc;
-use rusqlite::{Connection, Result, params};
+use rusqlite::{Connection, params};
 use std::fs;
 use std::path::PathBuf;
+use anyhow::{anyhow, Result};
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -12,23 +13,23 @@ pub struct Project {
     pub last_cleaned: String,
 }
 
-pub fn get_db_path() -> PathBuf {
+pub fn get_db_path() ->  Result<PathBuf> {
     //in dev mode using the current dir
     if cfg!(debug_assertions) {
-        PathBuf::from("nspira.db")
+        Ok(PathBuf::from("nspira.db"))
     } else {
         let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
         let nspira_dir = dir.join("nspira");
         if !nspira_dir.exists() {
-            fs::create_dir_all(&nspira_dir).expect("Failed to create nspira data dir");
+            fs::create_dir_all(&nspira_dir)?;
         }
-        nspira_dir.join("nspira.db")
+        Ok(nspira_dir.join("nspira.db"))
     }
 }
 
 pub fn connect() -> Result<Connection> {
-    let path = get_db_path();
-    Connection::open(path)
+    let path = get_db_path()?;
+    Connection::open(path).map_err(|e| anyhow!(e))
 }
 
 pub fn init_db() -> Result<()> {

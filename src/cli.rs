@@ -1,6 +1,7 @@
-use crate::db;
+use crate::{db, utils};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use utils::logger::*;
 
 #[derive(Parser)]
 #[command(
@@ -47,7 +48,7 @@ impl Cli {
 
     pub fn run(&self) -> anyhow::Result<()> {
         if let Err(e) = db::init_db() {
-            eprintln!("ERROR: Failed to initialize database: {}", e);
+            error(&format!("Failed to initialize database: {}", e));
             std::process::exit(1);
         }
 
