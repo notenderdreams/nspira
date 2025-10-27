@@ -9,9 +9,9 @@ use utils::logger::*;
     version,
     // about = "🌿 Lightweight cache manager for developers",
     before_help = r#"
-    ┌─────────────────────────────┐
-    │     🌿  n s p i r a  🌿     │
-    └─────────────────────────────┘
+    ┌────────────────────────────┐
+    │     🌿  n s p i r a  🌿      │
+    └────────────────────────────┘
 Lightweight cache manager for developers
     "#,
     after_help = "Examples:\n  \
