@@ -18,7 +18,7 @@ use crate::utils::{clean_dir, get_dir_size, human_readable_size};
 
 enum PopupState {
     None,
-    ConfirmDelete(usize),
+    ConfirmDelete,
 }
 
 struct App {
@@ -63,7 +63,7 @@ impl App {
     }
 
     fn show_delete_confirmation(&mut self) {
-        self.popup_state = PopupState::ConfirmDelete(self.selected);
+        self.popup_state = PopupState::ConfirmDelete;
     }
 
     fn hide_popup(&mut self) {
@@ -79,7 +79,7 @@ impl App {
     }
 }
 
-fn render_delete_popup(f: &mut Frame, project_name: &str) {
+fn render_delete_popup(f: &mut Frame, count: usize, is_multiple: bool) {
     let area = f.size();
     let popup_width = 60;
     let popup_height = 9;
@@ -96,31 +96,59 @@ fn render_delete_popup(f: &mut Frame, project_name: &str) {
 
     f.render_widget(Clear, popup_area);
 
-    let popup_text = vec![
-        Line::raw(""),
-        Line::styled(
-            "⚠️  Remove Project from Tracking?",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Line::raw(""),
-        Line::from(vec![
-            Span::raw("Project: "),
-            Span::styled(project_name, Style::default().fg(Color::Cyan)),
-        ]),
-        Line::raw(""),
-        Line::styled(
-            "This will stop tracking this project.",
-            Style::default().fg(Color::Gray),
-        ),
-        Line::from(vec![
-            Span::styled("y/d", Style::default().fg(Color::Green)),
-            Span::raw(" = Yes  |  "),
-            Span::styled("n/Esc", Style::default().fg(Color::Red)),
-            Span::raw(" = No"),
-        ]),
-    ];
+    let popup_text = if is_multiple {
+        vec![
+            Line::raw(""),
+            Line::styled(
+                "⚠️  Remove Multiple Projects?",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::raw(""),
+            Line::from(vec![
+                Span::raw("Selected: "),
+                Span::styled(format!("{} projects", count), Style::default().fg(Color::Cyan)),
+            ]),
+            Line::raw(""),
+            Line::styled(
+                "This will stop tracking these projects.",
+                Style::default().fg(Color::Gray),
+            ),
+            Line::from(vec![
+                Span::styled("y/d", Style::default().fg(Color::Green)),
+                Span::raw(" = Yes  |  "),
+                Span::styled("n/Esc", Style::default().fg(Color::Red)),
+                Span::raw(" = No"),
+            ]),
+        ]
+    } else {
+        vec![
+            Line::raw(""),
+            Line::styled(
+                "⚠️  Remove Project from Tracking?",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::raw(""),
+            Line::styled(
+                "Current selection will be removed.",
+                Style::default().fg(Color::Cyan),
+            ),
+            Line::raw(""),
+            Line::styled(
+                "This will stop tracking this project.",
+                Style::default().fg(Color::Gray),
+            ),
+            Line::from(vec![
+                Span::styled("y/d", Style::default().fg(Color::Green)),
+                Span::raw(" = Yes  |  "),
+                Span::styled("n/Esc", Style::default().fg(Color::Red)),
+                Span::raw(" = No"),
+            ]),
+        ]
+    };
 
     let popup = Paragraph::new(popup_text)
         .block(
@@ -202,6 +230,7 @@ pub fn run() -> anyhow::Result<()> {
 
             // Right Panel: stats + help
             let help_text = vec![
+                Line::styled("Statistics", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Line::from(vec![
                     Span::raw("Projects: "),
                     Span::styled(projects.len().to_string(), Style::default().fg(Color::Green)),
@@ -255,10 +284,10 @@ pub fn run() -> anyhow::Result<()> {
             f.render_widget(help_block, chunks[1]);
 
             // Render popup if visible
-            if let PopupState::ConfirmDelete(idx) = app.popup_state {
-                if idx < projects.len() {
-                    render_delete_popup(f, &projects[idx].name);
-                }
+            if let PopupState::ConfirmDelete = app.popup_state {
+                let count = if app.selected_items.is_empty() { 1 } else { app.selected_items.len() };
+                let is_multiple = !app.selected_items.is_empty();
+                render_delete_popup(f, count, is_multiple);
             }
         })?;
 
@@ -268,35 +297,63 @@ pub fn run() -> anyhow::Result<()> {
                 if app.is_popup_visible() {
                     match key.code {
                         KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
-                            if let PopupState::ConfirmDelete(idx) = app.popup_state {
-                                if idx < projects.len() {
-                                    let project_id = projects[idx].id;
-                                    let project_name = projects[idx].name.clone();
-                                    let project_cache_size = get_dir_size(&projects[idx].cache_dir);
+                            if let PopupState::ConfirmDelete = app.popup_state {
+                                let projects_to_delete: Vec<usize> = if app.selected_items.is_empty() {
+                                    // Delete only the currently highlighted project
+                                    vec![app.selected]
+                                } else {
+                                    // Delete all selected projects
+                                    app.selected_items.clone()
+                                };
 
-                                    if let Err(e) = remove_project(project_id) {
-                                        app.set_status(format!("Error removing project: {}", e));
-                                    } else {
-                                        projects.remove(idx);
+                                let mut total_size_freed = 0u64;
+                                let mut removed_count = 0;
+                                let mut errors = Vec::new();
 
-                                        // Update total cache size
-                                        app.update_total_cache_size(app.total_cache_size.saturating_sub(project_cache_size));
+                                // Sort in reverse order to delete from the end first
+                                let mut sorted_indexes = projects_to_delete.clone();
+                                sorted_indexes.sort_by(|a, b| b.cmp(a));
 
-                                        app.set_status(format!("✓ Removed project '{}'", project_name));
+                                for &idx in &sorted_indexes {
+                                    if idx < projects.len() {
+                                        let project_id = projects[idx].id;
+                                        let project_cache_size = get_dir_size(&projects[idx].cache_dir);
 
-                                        // Adjust selection if needed
-                                        if app.selected >= projects.len() && app.selected > 0 {
-                                            app.selected -= 1;
-                                        }
-
-                                        // Clear selected items that are now invalid
-                                        app.selected_items.retain(|&i| i < projects.len());
-
-                                        // Exit if no projects left
-                                        if projects.is_empty() {
-                                            app.exit = true;
+                                        if let Err(e) = remove_project(project_id) {
+                                            errors.push(format!("Error removing {}: {}", projects[idx].name, e));
+                                        } else {
+                                            total_size_freed += project_cache_size;
+                                            projects.remove(idx);
+                                            removed_count += 1;
                                         }
                                     }
+                                }
+
+                                // Update total cache size
+                                app.update_total_cache_size(app.total_cache_size.saturating_sub(total_size_freed));
+
+                                // Set status message
+                                if errors.is_empty() {
+                                    if removed_count == 1 {
+                                        app.set_status("✓ Removed 1 project from tracking");
+                                    } else {
+                                        app.set_status(format!("✓ Removed {} projects from tracking", removed_count));
+                                    }
+                                } else {
+                                    app.set_status(format!("⚠ Removed {} projects, {} errors", removed_count, errors.len()));
+                                }
+
+                                // Adjust selection if needed
+                                if app.selected >= projects.len() && app.selected > 0 {
+                                    app.selected = projects.len() - 1;
+                                }
+
+                                // Clear selected items
+                                app.selected_items.clear();
+
+                                // Exit if no projects left
+                                if projects.is_empty() {
+                                    app.exit = true;
                                 }
                             }
                             app.hide_popup();
@@ -324,7 +381,11 @@ pub fn run() -> anyhow::Result<()> {
                         KeyCode::Char(' ') => app.toggle_select(),
                         KeyCode::Char('a') => app.toggle_select_all(projects.len()),
                         KeyCode::Char('d') | KeyCode::Char('D') => {
-                            app.show_delete_confirmation();
+                            if projects.is_empty() {
+                                app.set_status("⚠ No projects to remove");
+                            } else {
+                                app.show_delete_confirmation();
+                            }
                         }
                         KeyCode::Enter => {
                             let selected_indexes: Vec<usize> = app.selected_items.clone();
