@@ -27,16 +27,18 @@ struct App {
     exit: bool,
     status_message: String,
     popup_state: PopupState,
+    total_cache_size: u64,
 }
 
 impl App {
-    fn new() -> Self {
+    fn new(total_cache_size: u64) -> Self {
         Self {
             selected: 0,
             selected_items: Vec::new(),
             exit: false,
             status_message: String::new(),
             popup_state: PopupState::None,
+            total_cache_size,
         }
     }
 
@@ -70,6 +72,10 @@ impl App {
 
     fn is_popup_visible(&self) -> bool {
         !matches!(self.popup_state, PopupState::None)
+    }
+
+    fn update_total_cache_size(&mut self, size: u64) {
+        self.total_cache_size = size;
     }
 }
 
@@ -135,6 +141,12 @@ pub fn run() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Calculate initial total cache size
+    let mut total_cache_size = 0u64;
+    for project in &projects {
+        total_cache_size += get_dir_size(&project.cache_dir);
+    }
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -142,7 +154,7 @@ pub fn run() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-    let mut app = App::new();
+    let mut app = App::new(total_cache_size);
 
     while !app.exit {
         terminal.draw(|f| {
@@ -188,8 +200,21 @@ pub fn run() -> anyhow::Result<()> {
 
             f.render_stateful_widget(table, chunks[0], &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)));
 
-            // Right Panel: status / help
+            // Right Panel: stats + help
             let help_text = vec![
+                Line::from(vec![
+                    Span::raw("Projects: "),
+                    Span::styled(projects.len().to_string(), Style::default().fg(Color::Green)),
+                ]),
+                Line::from(vec![
+                    Span::raw("Total Size: "),
+                    Span::styled(
+                        human_readable_size(app.total_cache_size),
+                        Style::default().fg(Color::Yellow)
+                    ),
+                ]),
+                Line::raw(""),
+                Line::styled("Controls", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 Line::from(vec![
                     Span::styled("↑/↓ or j/k", Style::default().fg(Color::Yellow)),
                     Span::raw(" - Move"),
@@ -214,11 +239,18 @@ pub fn run() -> anyhow::Result<()> {
                     Span::styled("q", Style::default().fg(Color::Yellow)),
                     Span::raw(" - Quit"),
                 ]),
-                Line::raw(""),
-                Line::styled("Status:", Style::default().add_modifier(Modifier::BOLD)),
-                Line::raw(app.status_message.clone()),
             ];
-            let help_block = Paragraph::new(help_text)
+
+            let mut final_help_text = help_text;
+
+            // Add status message if present
+            if !app.status_message.is_empty() {
+                final_help_text.push(Line::raw(""));
+                final_help_text.push(Line::styled("Status", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+                final_help_text.push(Line::styled(&app.status_message, Style::default().fg(Color::White)));
+            }
+
+            let help_block = Paragraph::new(final_help_text)
                 .block(Block::default().borders(Borders::ALL).title("Info"));
             f.render_widget(help_block, chunks[1]);
 
@@ -240,12 +272,17 @@ pub fn run() -> anyhow::Result<()> {
                                 if idx < projects.len() {
                                     let project_id = projects[idx].id;
                                     let project_name = projects[idx].name.clone();
+                                    let project_cache_size = get_dir_size(&projects[idx].cache_dir);
 
                                     if let Err(e) = remove_project(project_id) {
                                         app.set_status(format!("Error removing project: {}", e));
                                     } else {
                                         projects.remove(idx);
-                                        app.set_status(format!("Removed project '{}'", project_name));
+
+                                        // Update total cache size
+                                        app.update_total_cache_size(app.total_cache_size.saturating_sub(project_cache_size));
+
+                                        app.set_status(format!("✓ Removed project '{}'", project_name));
 
                                         // Adjust selection if needed
                                         if app.selected >= projects.len() && app.selected > 0 {
@@ -266,7 +303,7 @@ pub fn run() -> anyhow::Result<()> {
                         }
                         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                             app.hide_popup();
-                            app.set_status("Cancelled removal");
+                            app.set_status("✗ Cancelled removal");
                         }
                         _ => {}
                     }
@@ -292,7 +329,7 @@ pub fn run() -> anyhow::Result<()> {
                         KeyCode::Enter => {
                             let selected_indexes: Vec<usize> = app.selected_items.clone();
                             if selected_indexes.is_empty() {
-                                app.set_status("No projects selected to clean");
+                                app.set_status("⚠ No projects selected to clean");
                             } else {
                                 let mut total_freed = 0;
                                 for &i in &selected_indexes {
@@ -303,11 +340,18 @@ pub fn run() -> anyhow::Result<()> {
                                     total_freed += size;
                                     projects[i].last_cleaned = Utc::now().to_rfc3339();
                                 }
+
+                                // Update total cache size
+                                app.update_total_cache_size(app.total_cache_size.saturating_sub(total_freed));
+
                                 app.set_status(format!(
-                                    "Cleaned {} project(s) — freed {}",
+                                    "✓ Cleaned {} project(s) — freed {}",
                                     selected_indexes.len(),
                                     human_readable_size(total_freed)
                                 ));
+
+                                // Clear selections after cleaning
+                                app.selected_items.clear();
                             }
                         }
                         _ => {}
