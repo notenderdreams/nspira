@@ -1,0 +1,79 @@
+{
+  "patterns": [
+    {
+      "name": "Node.js",
+      "identifier": "package.json",
+      "cache_dirs": ["node_modules", ".next", "dist", "build", ".cache"]
+    },
+    {
+      "name": "Rust",
+      "identifier": "Cargo.toml",
+      "cache_dirs": ["target"]
+    },
+    {
+      "name": "Python",
+      "identifier": "requirements.txt",
+      "cache_dirs": ["__pycache__", ".venv", "venv", ".pytest_cache", ".mypy_cache"]
+    },
+    {
+      "name": "Python (Poetry)",
+      "identifier": "pyproject.toml",
+      "cache_dirs": ["__pycache__", ".venv", "venv", ".pytest_cache"]
+    },
+    {
+      "name": "Java (Maven)",
+      "identifier": "pom.xml",
+      "cache_dirs": ["target"]
+    },
+    {
+      "name": "Java (Gradle)",
+      "identifier": "build.gradle",
+      "cache_dirs": ["build", ".gradle"]
+    },
+    {
+      "name": "Go",
+      "identifier": "go.mod",
+      "cache_dirs": ["bin", "pkg"]
+    },
+    {
+      "name": "PHP (Composer)",
+      "identifier": "composer.json",
+      "cache_dirs": ["vendor"]
+    },
+    {
+      "name": "Ruby",
+      "identifier": "Gemfile",
+      "cache_dirs": ["vendor/bundle", ".bundle"]
+    },
+    {
+      "name": ".NET",
+      "identifier": "*.csproj",
+      "cache_dirs": ["bin", "obj"]
+    }
+  ],
+  "skip_dirs": [
+    ".git",
+    ".svn",
+    ".hg",
+    "node_modules",
+    "target",
+    ".cache",
+    "Library",
+    "AppData",
+    "Application Data",
+    "System",
+    "Windows",
+    "Program Files",
+    "Program Files (x86)",
+    ".Trash",
+    ".local/share",
+    ".cargo",
+    ".rustup",
+    ".npm",
+    ".yarn",
+    "site-packages",
+    "dist-packages",
+    "extensions",
+    ".bun"
+  ]
+}

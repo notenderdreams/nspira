@@ -8,7 +8,9 @@ pub fn run() -> anyhow::Result<()> {
     let mut total_storage_occupied: u64 = 0;
 
     for project in projects {
-        total_storage_occupied += get_dir_size(&project.cache_dir);
+        for cd in project.cache_dirs {
+            total_storage_occupied += get_dir_size(&cd);
+        }
     }
 
     println!();

@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 pub fn human_readable_size(bytes: u64) -> String {
     const KB: u64 = 1024;
@@ -34,8 +35,23 @@ pub fn get_dir_size(path: &str) -> u64 {
 }
 
 pub fn clean_dir(path: &str) -> anyhow::Result<()> {
-    if fs::metadata(path).is_ok() {
-        fs::remove_dir_all(path)?;
+    let path = Path::new(path);
+
+    if !path.exists() || !path.is_dir() {
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(path)?;
+
+    for entry in entries {
+        let entry = entry?;
+        let entry_path = entry.path();
+
+        if entry_path.is_file() {
+            fs::remove_file(&entry_path)?;
+        } else if entry_path.is_dir() {
+            fs::remove_dir_all(&entry_path)?;
+        }
     }
     Ok(())
 }
