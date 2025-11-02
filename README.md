@@ -15,14 +15,6 @@
 
 ---
 
-## 📋 Todo
-
-* [ ] `doctor` – Check for missing or invalid entries
-* [ ] `search` – Quickly find projects
-* [ ] Lightweight GUI or interactive TUI
-* [ ] Progress bar during cleaning
-* [ ] Pattern based file deletion
-
 ---
 
 ## ⚙️ Installation
