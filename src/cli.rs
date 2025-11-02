@@ -59,6 +59,8 @@ pub enum Commands {
     Doctor,
     /// Delete the entire database
     Flush,
+    /// Scan for cache directories 
+    Scan,
 }
 
 impl Cli {
@@ -83,6 +85,7 @@ impl Cli {
             Commands::Stats => crate::commands::stats::run()?,
             Commands::Doctor => crate::commands::doctor::run()?,
             Commands::Flush => crate::commands::flush::run()?,
+            Commands::Scan => crate::commands::scan::run()?,
         }
 
         Ok(())

@@ -6,3 +6,4 @@ pub mod init;
 pub mod list;
 pub mod remove;
 pub mod stats;
+pub mod scan;
