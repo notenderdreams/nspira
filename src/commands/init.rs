@@ -16,11 +16,14 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         vec![p]
     } else {
         let identifier_patterns = vec![
-            ("package.json", vec!["node_modules", ".next", "dist", "build"]), // Node / JS
-            ("Cargo.toml", vec!["target"]),         // Rust
-            ("pom.xml", vec!["target"]),            // Maven
+            (
+                "package.json",
+                vec!["node_modules", ".next", "dist", "build"],
+            ), // Node / JS
+            ("Cargo.toml", vec!["target"]),             // Rust
+            ("pom.xml", vec!["target"]),                // Maven
             ("build.gradle", vec!["build", ".gradle"]), // Gradle
-            ("go.mod", vec!["bin", "pkg"]),         // Go
+            ("go.mod", vec!["bin", "pkg"]),             // Go
             ("requirements.txt", vec!["__pycache__", ".venv", "venv"]), // Python
         ];
 
@@ -47,7 +50,8 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
             //  to provide cache directories manually
             let mut manual_caches = Vec::new();
             loop {
-                let cache_input = logger::ask_input("Enter cache directory path (or press Enter to finish)");
+                let cache_input =
+                    logger::ask_input("Enter cache directory path (or press Enter to finish)");
                 if cache_input.trim().is_empty() {
                     break;
                 }
@@ -63,7 +67,8 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
             let add_more = logger::ask_input("Add more cache directories? (y/n)");
             if add_more.to_lowercase() == "y" {
                 loop {
-                    let cache_input = logger::ask_input("Enter cache directory path (or press Enter to finish)");
+                    let cache_input =
+                        logger::ask_input("Enter cache directory path (or press Enter to finish)");
                     if cache_input.trim().is_empty() {
                         break;
                     }
@@ -90,17 +95,14 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         .collect();
 
     // Add project
-    let _ = add_project(
-        &project_name,
-        project_dir.to_str().unwrap(),
-        cache_paths,
-    )?;
+    let _ = add_project(&project_name, project_dir.to_str().unwrap(), cache_paths)?;
 
     // Confirm
     println!();
-    success(&format!("New project created with {} cache director{}",
-                     cache_dirs.len(),
-                     if cache_dirs.len() == 1 { "y" } else { "ies" }
+    success(&format!(
+        "New project created with {} cache director{}",
+        cache_dirs.len(),
+        if cache_dirs.len() == 1 { "y" } else { "ies" }
     ));
     Ok(())
 }

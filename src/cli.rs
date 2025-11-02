@@ -19,7 +19,6 @@ Lightweight cache manager for developers
                   nspira list                           Show all tracked caches\n  \
                   nspira clean                          Clean all caches safely\n  \
                   nspira stats                          View storage statistics"
-
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -31,7 +30,7 @@ pub enum Commands {
     /// Initialize a new project in the current directory
     Init {
         /// Optional cache directory path
-        path: Option<PathBuf>
+        path: Option<PathBuf>,
     },
     /// Add a new project with cache directories
     Add {
@@ -39,17 +38,17 @@ pub enum Commands {
         name: String,
         /// One or more cache directory paths
         #[arg(required = true, num_args = 1..)]
-        cache_paths: Vec<PathBuf>
+        cache_paths: Vec<PathBuf>,
     },
     /// Clean cache directories
     Clean {
         /// Optional project ID (cleans all if not provided)
-        id: Option<i32>
+        id: Option<i32>,
     },
     /// Remove a project from tracking
     Remove {
         /// Project ID to remove
-        id: i32
+        id: i32,
     },
     /// List all tracked projects (interactive TUI)
     List,
@@ -59,7 +58,7 @@ pub enum Commands {
     Doctor,
     /// Delete the entire database
     Flush,
-    /// Scan for cache directories 
+    /// Scan for cache directories
     Scan,
 }
 

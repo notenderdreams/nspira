@@ -3,20 +3,20 @@ use crate::utils::logger::{info, task};
 use anyhow::Result;
 use std::path::Path;
 
-use std::io;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Clear},
-    Terminal, Frame,
+    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table},
 };
+use std::io;
 
 #[derive(Debug)]
 struct ProjectHealth {
@@ -81,7 +81,11 @@ impl DoctorApp {
             self.project_healths.remove(self.selected);
 
             // Update counts
-            self.healthy_count = self.project_healths.iter().filter(|p| p.issues.is_empty()).count();
+            self.healthy_count = self
+                .project_healths
+                .iter()
+                .filter(|p| p.issues.is_empty())
+                .count();
             self.total_issues = self.project_healths.iter().map(|p| p.issues.len()).sum();
 
             self.set_status(format!("Removed project '{}' from tracking", project_name));
@@ -152,7 +156,7 @@ fn render_remove_popup(f: &mut Frame, project_name: &str, project_id: i32) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Confirm ")
+                .title(" Confirm "),
         )
         .alignment(Alignment::Center);
 
@@ -163,28 +167,56 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
     let size = f.size();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(8), Constraint::Min(10), Constraint::Min(10)])
+        .constraints([
+            Constraint::Length(8),
+            Constraint::Min(10),
+            Constraint::Min(10),
+        ])
         .split(size);
 
     // Header with summary
     let summary_text = vec![
-        Line::styled("Project Health Report", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Line::styled(
+            "Project Health Report",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
         Line::raw(""),
         Line::from(vec![
             Span::raw("Total Projects: "),
-            Span::styled(app.project_healths.len().to_string(), Style::default().fg(Color::White)),
+            Span::styled(
+                app.project_healths.len().to_string(),
+                Style::default().fg(Color::White),
+            ),
             Span::raw("    "),
             Span::raw("Healthy: "),
-            Span::styled(app.healthy_count.to_string(), Style::default().fg(Color::Green)),
+            Span::styled(
+                app.healthy_count.to_string(),
+                Style::default().fg(Color::Green),
+            ),
             Span::raw("    "),
             Span::raw("Issues: "),
-            Span::styled(app.total_issues.to_string(), Style::default().fg(if app.total_issues > 0 { Color::Red } else { Color::Green })),
+            Span::styled(
+                app.total_issues.to_string(),
+                Style::default().fg(if app.total_issues > 0 {
+                    Color::Red
+                } else {
+                    Color::Green
+                }),
+            ),
         ]),
         Line::raw(""),
         if app.total_issues == 0 {
-            Line::styled("All projects are healthy!", Style::default().fg(Color::Green))
+            Line::styled(
+                "All projects are healthy!",
+                Style::default().fg(Color::Green),
+            )
         } else {
-            Line::styled("Some projects need attention", Style::default().fg(Color::Yellow))
+            Line::styled(
+                "Some projects need attention",
+                Style::default().fg(Color::Yellow),
+            )
         },
     ];
 
@@ -195,7 +227,8 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
 
     // Main projects table
     let header = ["ID", "Name", "Path Status", "Cache Status", "Issues"];
-    let rows: Vec<Row> = app.project_healths
+    let rows: Vec<Row> = app
+        .project_healths
         .iter()
         .enumerate()
         .map(|(i, health)| {
@@ -217,15 +250,28 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
 
             // Cache status
             let total_caches = health.cache_dirs_exist.len();
-            let healthy_caches = health.cache_dirs_exist.iter().filter(|(_, exists)| *exists).count();
+            let healthy_caches = health
+                .cache_dirs_exist
+                .iter()
+                .filter(|(_, exists)| *exists)
+                .count();
             let cache_status = if total_caches == 0 {
                 Span::styled("None", Style::default().fg(Color::Gray))
             } else if healthy_caches == total_caches {
-                Span::styled(format!("{}/{} OK", healthy_caches, total_caches), Style::default().fg(Color::Green))
+                Span::styled(
+                    format!("{}/{} OK", healthy_caches, total_caches),
+                    Style::default().fg(Color::Green),
+                )
             } else if healthy_caches == 0 {
-                Span::styled(format!("{}/{} MISSING", healthy_caches, total_caches), Style::default().fg(Color::Red))
+                Span::styled(
+                    format!("{}/{} MISSING", healthy_caches, total_caches),
+                    Style::default().fg(Color::Red),
+                )
             } else {
-                Span::styled(format!("{}/{} WARN", healthy_caches, total_caches), Style::default().fg(Color::Yellow))
+                Span::styled(
+                    format!("{}/{} WARN", healthy_caches, total_caches),
+                    Style::default().fg(Color::Yellow),
+                )
             };
 
             // Issues count
@@ -246,23 +292,30 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
         })
         .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Length(6),
-        Constraint::Length(20),
-        Constraint::Length(12),
-        Constraint::Length(12),
-        Constraint::Length(8),
-    ])
-        .header(
-            Row::new(header)
-                .style(Style::default().add_modifier(Modifier::BOLD))
-                .bottom_margin(1),
-        )
-        .block(Block::default().borders(Borders::ALL).title("Projects"))
-        .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
-        .highlight_symbol(">> ");
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(6),
+            Constraint::Length(20),
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(8),
+        ],
+    )
+    .header(
+        Row::new(header)
+            .style(Style::default().add_modifier(Modifier::BOLD))
+            .bottom_margin(1),
+    )
+    .block(Block::default().borders(Borders::ALL).title("Projects"))
+    .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
+    .highlight_symbol(">> ");
 
-    f.render_stateful_widget(table, chunks[1], &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)));
+    f.render_stateful_widget(
+        table,
+        chunks[1],
+        &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)),
+    );
 
     // Details panel
     let details_text = if app.project_healths.is_empty() {
@@ -271,15 +324,24 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
         let health = &app.project_healths[app.selected];
         let mut lines = vec![
             Line::styled(
-                format!("Project: {} (ID: {})", health.project_name, health.project_id),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                format!(
+                    "Project: {} (ID: {})",
+                    health.project_name, health.project_id
+                ),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
             Line::raw(""),
             Line::from(vec![
                 Span::raw("Path: "),
                 Span::styled(
                     &health.project_path,
-                    if health.path_exists { Style::default().fg(Color::Green) } else { Style::default().fg(Color::Red) }
+                    if health.path_exists {
+                        Style::default().fg(Color::Green)
+                    } else {
+                        Style::default().fg(Color::Red)
+                    },
                 ),
                 Span::raw(" ["),
                 if health.path_exists {
@@ -293,13 +355,20 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
         ];
 
         // Cache directories
-        lines.push(Line::styled("Cache Directories:", Style::default().fg(Color::Yellow)));
+        lines.push(Line::styled(
+            "Cache Directories:",
+            Style::default().fg(Color::Yellow),
+        ));
         if health.cache_dirs_exist.is_empty() {
             lines.push(Line::raw("  No cache directories configured"));
         } else {
             for (cache_dir, exists) in &health.cache_dirs_exist {
                 let status = if *exists { "OK" } else { "MISSING" };
-                let style = if *exists { Style::default().fg(Color::Green) } else { Style::default().fg(Color::Red) };
+                let style = if *exists {
+                    Style::default().fg(Color::Green)
+                } else {
+                    Style::default().fg(Color::Red)
+                };
                 lines.push(Line::from(vec![
                     Span::raw("  ["),
                     Span::styled(status, style),
@@ -312,9 +381,15 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
         // Issues
         lines.push(Line::raw(""));
         if health.issues.is_empty() {
-            lines.push(Line::styled("No issues found", Style::default().fg(Color::Green)));
+            lines.push(Line::styled(
+                "No issues found",
+                Style::default().fg(Color::Green),
+            ));
         } else {
-            lines.push(Line::styled("Issues Found:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+            lines.push(Line::styled(
+                "Issues Found:",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ));
             for issue in &health.issues {
                 lines.push(Line::from(vec![
                     Span::raw("  * "),
@@ -324,9 +399,13 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
 
             lines.push(Line::raw(""));
             lines.push(Line::styled("Actions:", Style::default().fg(Color::Cyan)));
-            lines.push(Line::raw("  * Press 'd' to remove this project from tracking"));
+            lines.push(Line::raw(
+                "  * Press 'd' to remove this project from tracking",
+            ));
             if !health.path_exists {
-                lines.push(Line::raw("  * Use 'nspira add' to re-add with correct path"));
+                lines.push(Line::raw(
+                    "  * Use 'nspira add' to re-add with correct path",
+                ));
             }
         }
 
@@ -334,7 +413,10 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
         if !app.status_message.is_empty() {
             lines.push(Line::raw(""));
             lines.push(Line::styled("Status:", Style::default().fg(Color::Cyan)));
-            lines.push(Line::styled(&app.status_message, Style::default().fg(Color::White)));
+            lines.push(Line::styled(
+                &app.status_message,
+                Style::default().fg(Color::White),
+            ));
         }
         lines
     };
@@ -356,7 +438,11 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
     }
 }
 
-fn run_doctor_tui(project_healths: Vec<ProjectHealth>, healthy_count: usize, total_issues: usize) -> Result<()> {
+fn run_doctor_tui(
+    project_healths: Vec<ProjectHealth>,
+    healthy_count: usize,
+    total_issues: usize,
+) -> Result<()> {
     if project_healths.is_empty() {
         info("No projects found in database.");
         return Ok(());
@@ -379,21 +465,22 @@ fn run_doctor_tui(project_healths: Vec<ProjectHealth>, healthy_count: usize, tot
                 // Handle popup input
                 if app.is_popup_visible() {
                     match app.popup_state {
-                        PopupState::ConfirmRemove => {
-                            match key.code {
-                                KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
-                                    if let Err(e) = app.remove_current_project() {
-                                        app.set_status(format!("Error removing project: {}", e));
-                                    }
-                                    app.hide_popup();
+                        PopupState::ConfirmRemove => match key.code {
+                            KeyCode::Char('y')
+                            | KeyCode::Char('d')
+                            | KeyCode::Char('Y')
+                            | KeyCode::Char('D') => {
+                                if let Err(e) = app.remove_current_project() {
+                                    app.set_status(format!("Error removing project: {}", e));
                                 }
-                                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                                    app.hide_popup();
-                                    app.set_status("Cancelled removal");
-                                }
-                                _ => {}
+                                app.hide_popup();
                             }
-                        }
+                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                                app.hide_popup();
+                                app.set_status("Cancelled removal");
+                            }
+                            _ => {}
+                        },
                         PopupState::None => {}
                     }
                 } else {
@@ -464,7 +551,9 @@ pub fn run() -> Result<()> {
         // Check if project path exists
         health.path_exists = Path::new(&project.path).exists();
         if !health.path_exists {
-            health.issues.push(format!("Project path does not exist: {}", project.path));
+            health
+                .issues
+                .push(format!("Project path does not exist: {}", project.path));
         }
 
         // Check each cache directory
@@ -472,7 +561,9 @@ pub fn run() -> Result<()> {
             let exists = Path::new(cache_dir).exists();
             health.cache_dirs_exist.push((cache_dir.clone(), exists));
             if !exists {
-                health.issues.push(format!("Cache directory does not exist: {}", cache_dir));
+                health
+                    .issues
+                    .push(format!("Cache directory does not exist: {}", cache_dir));
             }
         }
 

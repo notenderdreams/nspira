@@ -1,7 +1,7 @@
 use crate::db::add_project;
-use crate::utils::logger::{success, ask_input, info};
-use std::path::{Path, PathBuf};
+use crate::utils::logger::{ask_input, info, success};
 use colored::Colorize;
+use std::path::{Path, PathBuf};
 
 pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
     if cache_dirs.is_empty() {
@@ -23,7 +23,8 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
         .collect();
 
     // Get project directory from the first cache dir's parent
-    let project_dir = cache_dirs[0].parent()
+    let project_dir = cache_dirs[0]
+        .parent()
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf();
 
@@ -73,9 +74,10 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
 
     match add_project(project_name, &project_path, cache_paths) {
         Ok(_) => {
-            success(&format!("New project created with {} cache director{}",
-                             cache_count,
-                             if cache_count == 1 { "y" } else { "ies" }
+            success(&format!(
+                "New project created with {} cache director{}",
+                cache_count,
+                if cache_count == 1 { "y" } else { "ies" }
             ));
             Ok(())
         }
