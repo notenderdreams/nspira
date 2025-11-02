@@ -8,18 +8,55 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
         anyhow::bail!("At least one cache directory must be provided");
     }
 
-    // Get project directory from the first cache dir's parent
-    let project_dir = cache_dirs[0].parent().unwrap_or_else(|| Path::new("."));
-
-    // Convert PathBuf vector to Vec<String>
-    let cache_paths: Vec<String> = cache_dirs
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
+    // Convert all paths to absolute paths
+    let cache_dirs: Vec<PathBuf> = cache_dirs
+        .into_iter()
+        .map(|path| {
+            if path.is_absolute() {
+                path
+            } else {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(path)
+            }
+        })
         .collect();
 
-    // Summery
+    // Get project directory from the first cache dir's parent
+    let project_dir = cache_dirs[0].parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf();
+
+    // Convert PathBuf vector to Vec<String> with absolute paths
+    let cache_paths: Vec<String> = cache_dirs
+        .iter()
+        .map(|p| {
+            if p.is_absolute() {
+                p.to_string_lossy().to_string()
+            } else {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(p)
+                    .to_string_lossy()
+                    .to_string()
+            }
+        })
+        .collect();
+
+    // Convert project_dir to absolute path string
+    let project_path = if project_dir.is_absolute() {
+        project_dir.to_string_lossy().to_string()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(&project_dir)
+            .to_string_lossy()
+            .to_string()
+    };
+
+    // Summary
     info(&format!("Project: {}", project_name.bold()));
-    info(&format!("Path: {}", project_dir.to_str().unwrap().bold()));
+    info(&format!("Path: {}", project_path.bold()));
     info(&format!("Cache directories ({}): ", cache_paths.len()));
     for (idx, cache) in cache_paths.iter().enumerate() {
         println!("  {}. {}", idx + 1, cache);
@@ -34,15 +71,16 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
 
     let cache_count = cache_paths.len();
 
-    let _ = add_project(
-        project_name,
-        project_dir.to_str().unwrap(),
-        cache_paths,
-    )?;
-
-    success(&format!("New project created with {} cache director{}",
-                     cache_count,
-                     if cache_count == 1 { "y" } else { "ies" }
-    ));
-    Ok(())
+    match add_project(project_name, &project_path, cache_paths) {
+        Ok(_) => {
+            success(&format!("New project created with {} cache director{}",
+                             cache_count,
+                             if cache_count == 1 { "y" } else { "ies" }
+            ));
+            Ok(())
+        }
+        Err(e) => {
+            anyhow::bail!("Failed to add project to database: {}", e);
+        }
+    }
 }
