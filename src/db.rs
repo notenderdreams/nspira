@@ -2,10 +2,9 @@ use crate::utils::logger::info;
 use anyhow::{Result, anyhow};
 use chrono::Utc;
 use rusqlite::{Connection, params};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
@@ -106,7 +105,6 @@ pub fn get_all_projects() -> Result<Vec<Project>> {
     Ok(projects)
 }
 
-
 pub fn update_last_cleaned(id: i32) -> Result<()> {
     let conn = connect()?;
     let now = Utc::now().to_rfc3339();
@@ -168,7 +166,10 @@ mod tests {
 
         let name = "Test Project";
         let path = "/tmp/test";
-        let cache_dirs = vec!["/tmp/test/cache1".to_string(), "/tmp/test/cache2".to_string()];
+        let cache_dirs = vec![
+            "/tmp/test/cache1".to_string(),
+            "/tmp/test/cache2".to_string(),
+        ];
         let cache_json = serde_json::to_string(&cache_dirs).unwrap();
         let last_cleaned = Utc::now().to_rfc3339();
 
@@ -177,7 +178,7 @@ mod tests {
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
             params![name, path, cache_json, last_cleaned],
         )
-            .unwrap();
+        .unwrap();
 
         // Get
         let mut stmt = conn
@@ -215,7 +216,7 @@ mod tests {
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
             params!["Test", "/tmp", cache_json, "2025-01-01T00:00:00Z"],
         )
-            .unwrap();
+        .unwrap();
 
         let id: i32 = conn
             .query_row("SELECT id FROM projects", [], |row| row.get(0))
@@ -227,7 +228,7 @@ mod tests {
             "UPDATE projects SET last_cleaned = ?1 WHERE id = ?2",
             params![new_time, id],
         )
-            .unwrap();
+        .unwrap();
 
         let updated: String = conn
             .query_row(
@@ -250,7 +251,7 @@ mod tests {
             "INSERT INTO projects (name, path, cache_dir, last_cleaned) VALUES (?1, ?2, ?3, ?4)",
             params!["Test", "/tmp", cache_json, "2025-01-01T00:00:00Z"],
         )
-            .unwrap();
+        .unwrap();
 
         let id: i32 = conn
             .query_row("SELECT id FROM projects", [], |row| row.get(0))

@@ -30,7 +30,7 @@ pub fn run(id: Option<i32>) -> Result<()> {
 
 fn clean_cache(pid: i32) -> Result<u64> {
     let project = crate::db::get_project_by_id(pid)?.expect("No such project found with that id");
-    let mut  size = 0 ;
+    let mut size = 0;
     for cd in project.cache_dirs {
         size += get_dir_size(&cd);
         crate::utils::clean_dir(&cd)?;

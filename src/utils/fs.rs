@@ -34,10 +34,6 @@ pub fn get_dir_size(path: &str) -> u64 {
     size
 }
 
-
-
-
-
 pub fn clean_dir(path: &str) -> anyhow::Result<()> {
     let path = Path::new(path);
 

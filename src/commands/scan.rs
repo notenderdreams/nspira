@@ -1,5 +1,5 @@
 use crate::db::{add_project, get_all_projects};
-use crate::utils::logger::{info, success, task, ask_input};
+use crate::utils::logger::{ask_input, info, success, task};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -7,20 +7,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use std::io;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Clear},
-    Terminal, Frame,
+    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table},
 };
+use std::io;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ProjectPattern {
@@ -90,17 +90,14 @@ impl ScanApp {
                 let project = &self.detected_projects[idx];
 
                 // Convert PathBuf vector to Vec<String>
-                let cache_paths: Vec<String> = project.cache_dirs
+                let cache_paths: Vec<String> = project
+                    .cache_dirs
                     .iter()
                     .map(|p| p.to_string_lossy().to_string())
                     .collect();
 
                 // Add project to database
-                add_project(
-                    &project.name,
-                    project.path.to_str().unwrap(),
-                    cache_paths,
-                )?;
+                add_project(&project.name, project.path.to_str().unwrap(), cache_paths)?;
 
                 added_count += 1;
             }
@@ -123,14 +120,17 @@ fn render_scan_ui(f: &mut Frame, app: &ScanApp) {
 
     // Main table
     let header = ["Select", "Name", "Type", "Path", "Cache Dirs"];
-    let rows: Vec<Row> = app.detected_projects
+    let rows: Vec<Row> = app
+        .detected_projects
         .iter()
         .enumerate()
         .map(|(i, p)| {
             let is_selected = app.selected_items.contains(&i);
             let marker = if is_selected { "✓" } else { " " };
             let selection_style = if is_selected {
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -145,27 +145,43 @@ fn render_scan_ui(f: &mut Frame, app: &ScanApp) {
         })
         .collect();
 
-    let table = Table::new(rows, [
-        Constraint::Length(8),
-        Constraint::Length(20),
-        Constraint::Length(15),
-        Constraint::Percentage(50),
-        Constraint::Length(12),
-    ])
-        .header(
-            Row::new(header)
-                .style(Style::default().add_modifier(Modifier::BOLD))
-                .bottom_margin(1),
-        )
-        .block(Block::default().borders(Borders::ALL).title("Detected Projects"))
-        .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
-        .highlight_symbol(">> ");
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(8),
+            Constraint::Length(20),
+            Constraint::Length(15),
+            Constraint::Percentage(50),
+            Constraint::Length(12),
+        ],
+    )
+    .header(
+        Row::new(header)
+            .style(Style::default().add_modifier(Modifier::BOLD))
+            .bottom_margin(1),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Detected Projects"),
+    )
+    .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
+    .highlight_symbol(">> ");
 
-    f.render_stateful_widget(table, chunks[0], &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)));
+    f.render_stateful_widget(
+        table,
+        chunks[0],
+        &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)),
+    );
 
     // Help panel
     let help_text = vec![
-        Line::styled("Controls", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Line::styled(
+            "Controls",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
         Line::from(vec![
             Span::styled("↑/↓ or j/k", Style::default().fg(Color::Yellow)),
             Span::raw(" - Navigate"),
@@ -192,13 +208,18 @@ fn render_scan_ui(f: &mut Frame, app: &ScanApp) {
 
     // Add selection info
     if !app.selected_items.is_empty() {
-        status_lines.insert(0, Line::from(vec![
-            Span::raw("Selected: "),
-            Span::styled(
-                format!("{} project(s)", app.selected_items.len()),
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-            ),
-        ]));
+        status_lines.insert(
+            0,
+            Line::from(vec![
+                Span::raw("Selected: "),
+                Span::styled(
+                    format!("{} project(s)", app.selected_items.len()),
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+        );
         status_lines.insert(1, Line::raw(""));
     }
 
@@ -207,12 +228,12 @@ fn render_scan_ui(f: &mut Frame, app: &ScanApp) {
         status_lines.push(Line::raw(""));
         status_lines.push(Line::styled(
             &app.status_message,
-            Style::default().fg(Color::White)
+            Style::default().fg(Color::White),
         ));
     }
 
-    let help_block = Paragraph::new(status_lines)
-        .block(Block::default().borders(Borders::ALL).title("Info"));
+    let help_block =
+        Paragraph::new(status_lines).block(Block::default().borders(Borders::ALL).title("Info"));
     f.render_widget(help_block, chunks[1]);
 }
 
@@ -276,8 +297,7 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
 impl ScanConfig {
     fn load() -> Result<Self> {
         // Try to load from user config first
-        let config_path = dirs::config_dir()
-            .map(|d| d.join("nspira").join("patterns.json"));
+        let config_path = dirs::config_dir().map(|d| d.join("nspira").join("patterns.json"));
 
         if let Some(path) = &config_path {
             if path.exists() {
@@ -294,7 +314,10 @@ impl ScanConfig {
 pub fn run() -> Result<()> {
     task("Loading scan patterns...");
     let config = ScanConfig::load()?;
-    info(&format!("Loaded {} project patterns", config.patterns.len()));
+    info(&format!(
+        "Loaded {} project patterns",
+        config.patterns.len()
+    ));
 
     task("Starting filesystem scan...");
     let start_path = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -312,7 +335,10 @@ pub fn run() -> Result<()> {
 
 fn get_tracked_paths() -> Result<HashSet<PathBuf>> {
     let projects = get_all_projects()?;
-    Ok(projects.into_iter().map(|p| PathBuf::from(p.path)).collect())
+    Ok(projects
+        .into_iter()
+        .map(|p| PathBuf::from(p.path))
+        .collect())
 }
 
 fn scan_filesystem(

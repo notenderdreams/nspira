@@ -1,20 +1,20 @@
-use std::io;
+use crate::db::{get_all_projects, remove_project, update_last_cleaned};
+use crate::utils::{clean_dir, get_dir_size, human_readable_size};
 use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Clear, Gauge},
-    Terminal, Frame,
+    widgets::{Block, Borders, Cell, Clear, Gauge, Paragraph, Row, Table},
 };
-use crate::db::{get_all_projects, update_last_cleaned, remove_project};
-use crate::utils::{clean_dir, get_dir_size, human_readable_size};
+use std::io;
 
 enum PopupState {
     None,
@@ -149,7 +149,10 @@ fn render_delete_popup(f: &mut Frame, count: usize, is_multiple: bool) {
             Line::raw(""),
             Line::from(vec![
                 Span::raw("Selected: "),
-                Span::styled(format!("{} projects", count), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("{} projects", count),
+                    Style::default().fg(Color::Cyan),
+                ),
             ]),
             Line::raw(""),
             Line::styled(
@@ -196,7 +199,7 @@ fn render_delete_popup(f: &mut Frame, count: usize, is_multiple: bool) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Confirm ")
+                .title(" Confirm "),
         )
         .alignment(Alignment::Center);
 
@@ -232,7 +235,10 @@ fn render_cleaning_progress(f: &mut Frame, app: &App) {
         Line::from(vec![
             Span::raw("Progress: "),
             Span::styled(
-                format!("{}/{}", app.cleaning_projects_done, app.cleaning_projects_total),
+                format!(
+                    "{}/{}",
+                    app.cleaning_projects_done, app.cleaning_projects_total
+                ),
                 Style::default().fg(Color::Cyan),
             ),
         ]),
@@ -254,11 +260,7 @@ fn render_cleaning_progress(f: &mut Frame, app: &App) {
 
     let progress_gauge = Gauge::default()
         .block(Block::default())
-        .gauge_style(
-            Style::default()
-                .fg(Color::Green)
-                .bg(Color::DarkGray)
-        )
+        .gauge_style(Style::default().fg(Color::Green).bg(Color::DarkGray))
         .percent(app.cleaning_progress as u16)
         .label(format!("{:.1}%", app.cleaning_progress));
 
@@ -321,9 +323,7 @@ pub fn run() -> anyhow::Result<()> {
                     let marker = if is_selected { "✓" } else { " " };
 
                     // Calculate total size for all cache dirs
-                    let total_size: u64 = p.cache_dirs.iter()
-                        .map(|cd| get_dir_size(cd))
-                        .sum();
+                    let total_size: u64 = p.cache_dirs.iter().map(|cd| get_dir_size(cd)).sum();
 
                     Row::new(vec![
                         Cell::from(format!("{} {}", marker, p.id)),
@@ -335,42 +335,62 @@ pub fn run() -> anyhow::Result<()> {
                 })
                 .collect();
 
-            let table = Table::new(rows, [
-                Constraint::Length(6),
-                Constraint::Length(20),
-                Constraint::Length(25),
-                Constraint::Length(10),
-                Constraint::Length(18),
-            ])
-                .header(
-                    Row::new(header)
-                        .style(Style::default().add_modifier(Modifier::BOLD))
-                        .bottom_margin(1),
-                )
-                .block(Block::default().borders(Borders::ALL).title("Projects"))
-                .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
-                .highlight_symbol(">> ");
+            let table = Table::new(
+                rows,
+                [
+                    Constraint::Length(6),
+                    Constraint::Length(20),
+                    Constraint::Length(25),
+                    Constraint::Length(10),
+                    Constraint::Length(18),
+                ],
+            )
+            .header(
+                Row::new(header)
+                    .style(Style::default().add_modifier(Modifier::BOLD))
+                    .bottom_margin(1),
+            )
+            .block(Block::default().borders(Borders::ALL).title("Projects"))
+            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
+            .highlight_symbol(">> ");
 
-            f.render_stateful_widget(table, chunks[0], &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)));
+            f.render_stateful_widget(
+                table,
+                chunks[0],
+                &mut ratatui::widgets::TableState::default().with_selected(Some(app.selected)),
+            );
 
             // Right Panel: Toggle between stats/help and cache directories
             match app.right_panel_view {
                 RightPanelView::StatsAndHelp => {
                     let mut help_text = vec![
-                        Line::styled("Statistics", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                        Line::styled(
+                            "Statistics",
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Line::from(vec![
                             Span::raw("Projects: "),
-                            Span::styled(projects.len().to_string(), Style::default().fg(Color::Green)),
+                            Span::styled(
+                                projects.len().to_string(),
+                                Style::default().fg(Color::Green),
+                            ),
                         ]),
                         Line::from(vec![
                             Span::raw("Total Size: "),
                             Span::styled(
                                 human_readable_size(app.total_cache_size),
-                                Style::default().fg(Color::Yellow)
+                                Style::default().fg(Color::Yellow),
                             ),
                         ]),
                         Line::raw(""),
-                        Line::styled("Controls", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                        Line::styled(
+                            "Controls",
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Line::from(vec![
                             Span::styled("↑/↓ or j/k", Style::default().fg(Color::Yellow)),
                             Span::raw(" - Move"),
@@ -404,8 +424,16 @@ pub fn run() -> anyhow::Result<()> {
                     // Add status message if present
                     if !app.status_message.is_empty() {
                         help_text.push(Line::raw(""));
-                        help_text.push(Line::styled("Status", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
-                        help_text.push(Line::styled(&app.status_message, Style::default().fg(Color::White)));
+                        help_text.push(Line::styled(
+                            "Status",
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ));
+                        help_text.push(Line::styled(
+                            &app.status_message,
+                            Style::default().fg(Color::White),
+                        ));
                     }
 
                     let help_block = Paragraph::new(help_text)
@@ -420,7 +448,9 @@ pub fn run() -> anyhow::Result<()> {
                             let mut lines = vec![
                                 Line::styled(
                                     format!("Cache Directories for '{}'", project.name),
-                                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                                    Style::default()
+                                        .fg(Color::Cyan)
+                                        .add_modifier(Modifier::BOLD),
                                 ),
                                 Line::raw(""),
                             ];
@@ -428,12 +458,18 @@ pub fn run() -> anyhow::Result<()> {
                             for (idx, cache_dir) in project.cache_dirs.iter().enumerate() {
                                 let size = get_dir_size(cache_dir);
                                 lines.push(Line::from(vec![
-                                    Span::styled(format!("{}. ", idx + 1), Style::default().fg(Color::Yellow)),
+                                    Span::styled(
+                                        format!("{}. ", idx + 1),
+                                        Style::default().fg(Color::Yellow),
+                                    ),
                                     Span::raw(cache_dir),
                                 ]));
                                 lines.push(Line::from(vec![
                                     Span::raw("   Size: "),
-                                    Span::styled(human_readable_size(size), Style::default().fg(Color::Green)),
+                                    Span::styled(
+                                        human_readable_size(size),
+                                        Style::default().fg(Color::Green),
+                                    ),
                                 ]));
                                 lines.push(Line::raw(""));
                             }
@@ -453,17 +489,22 @@ pub fn run() -> anyhow::Result<()> {
                         vec![
                             Line::styled(
                                 "Multiple Projects Selected",
-                                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                                Style::default()
+                                    .fg(Color::Cyan)
+                                    .add_modifier(Modifier::BOLD),
                             ),
                             Line::raw(""),
                             Line::from(vec![
-                                Span::styled(format!("{}", app.selected_items.len()), Style::default().fg(Color::Yellow)),
+                                Span::styled(
+                                    format!("{}", app.selected_items.len()),
+                                    Style::default().fg(Color::Yellow),
+                                ),
                                 Span::raw(" projects selected"),
                             ]),
                             Line::raw(""),
                             Line::styled(
                                 "Deselect to view cache directories",
-                                Style::default().fg(Color::Gray)
+                                Style::default().fg(Color::Gray),
                             ),
                             Line::raw(""),
                             Line::from(vec![
@@ -473,8 +514,11 @@ pub fn run() -> anyhow::Result<()> {
                         ]
                     };
 
-                    let cache_block = Paragraph::new(cache_text)
-                        .block(Block::default().borders(Borders::ALL).title("Cache Directories"));
+                    let cache_block = Paragraph::new(cache_text).block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title("Cache Directories"),
+                    );
                     f.render_widget(cache_block, chunks[1]);
                 }
             }
@@ -482,7 +526,11 @@ pub fn run() -> anyhow::Result<()> {
             // Render popup if visible
             match app.popup_state {
                 PopupState::ConfirmDelete => {
-                    let count = if app.selected_items.is_empty() { 1 } else { app.selected_items.len() };
+                    let count = if app.selected_items.is_empty() {
+                        1
+                    } else {
+                        app.selected_items.len()
+                    };
                     let is_multiple = !app.selected_items.is_empty();
                     render_delete_popup(f, count, is_multiple);
                 }
@@ -498,70 +546,86 @@ pub fn run() -> anyhow::Result<()> {
                 // Handle popup input
                 if app.is_popup_visible() {
                     match app.popup_state {
-                        PopupState::ConfirmDelete => {
-                            match key.code {
-                                KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
-                                    let projects_to_delete: Vec<usize> = if app.selected_items.is_empty() {
+                        PopupState::ConfirmDelete => match key.code {
+                            KeyCode::Char('y')
+                            | KeyCode::Char('d')
+                            | KeyCode::Char('Y')
+                            | KeyCode::Char('D') => {
+                                let projects_to_delete: Vec<usize> =
+                                    if app.selected_items.is_empty() {
                                         vec![app.selected]
                                     } else {
                                         app.selected_items.clone()
                                     };
 
-                                    let mut total_size_freed = 0u64;
-                                    let mut removed_count = 0;
-                                    let mut errors = Vec::new();
+                                let mut total_size_freed = 0u64;
+                                let mut removed_count = 0;
+                                let mut errors = Vec::new();
 
-                                    let mut sorted_indexes = projects_to_delete.clone();
-                                    sorted_indexes.sort_by(|a, b| b.cmp(a));
+                                let mut sorted_indexes = projects_to_delete.clone();
+                                sorted_indexes.sort_by(|a, b| b.cmp(a));
 
-                                    for &idx in &sorted_indexes {
-                                        if idx < projects.len() {
-                                            let project_id = projects[idx].id;
-                                            let project_cache_size: u64 = projects[idx].cache_dirs.iter()
-                                                .map(|cd| get_dir_size(cd))
-                                                .sum();
+                                for &idx in &sorted_indexes {
+                                    if idx < projects.len() {
+                                        let project_id = projects[idx].id;
+                                        let project_cache_size: u64 = projects[idx]
+                                            .cache_dirs
+                                            .iter()
+                                            .map(|cd| get_dir_size(cd))
+                                            .sum();
 
-                                            if let Err(e) = remove_project(project_id) {
-                                                errors.push(format!("Error removing {}: {}", projects[idx].name, e));
-                                            } else {
-                                                total_size_freed += project_cache_size;
-                                                projects.remove(idx);
-                                                removed_count += 1;
-                                            }
-                                        }
-                                    }
-
-                                    app.update_total_cache_size(app.total_cache_size.saturating_sub(total_size_freed));
-
-                                    if errors.is_empty() {
-                                        if removed_count == 1 {
-                                            app.set_status("✓ Removed 1 project from tracking");
+                                        if let Err(e) = remove_project(project_id) {
+                                            errors.push(format!(
+                                                "Error removing {}: {}",
+                                                projects[idx].name, e
+                                            ));
                                         } else {
-                                            app.set_status(format!("✓ Removed {} projects from tracking", removed_count));
+                                            total_size_freed += project_cache_size;
+                                            projects.remove(idx);
+                                            removed_count += 1;
                                         }
+                                    }
+                                }
+
+                                app.update_total_cache_size(
+                                    app.total_cache_size.saturating_sub(total_size_freed),
+                                );
+
+                                if errors.is_empty() {
+                                    if removed_count == 1 {
+                                        app.set_status("✓ Removed 1 project from tracking");
                                     } else {
-                                        app.set_status(format!("⚠ Removed {} projects, {} errors", removed_count, errors.len()));
+                                        app.set_status(format!(
+                                            "✓ Removed {} projects from tracking",
+                                            removed_count
+                                        ));
                                     }
-
-                                    if app.selected >= projects.len() && app.selected > 0 {
-                                        app.selected = projects.len() - 1;
-                                    }
-
-                                    app.selected_items.clear();
-
-                                    if projects.is_empty() {
-                                        app.exit = true;
-                                    }
-
-                                    app.hide_popup();
+                                } else {
+                                    app.set_status(format!(
+                                        "⚠ Removed {} projects, {} errors",
+                                        removed_count,
+                                        errors.len()
+                                    ));
                                 }
-                                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                                    app.hide_popup();
-                                    app.set_status("✗ Cancelled removal");
+
+                                if app.selected >= projects.len() && app.selected > 0 {
+                                    app.selected = projects.len() - 1;
                                 }
-                                _ => {}
+
+                                app.selected_items.clear();
+
+                                if projects.is_empty() {
+                                    app.exit = true;
+                                }
+
+                                app.hide_popup();
                             }
-                        }
+                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                                app.hide_popup();
+                                app.set_status("✗ Cancelled removal");
+                            }
+                            _ => {}
+                        },
                         PopupState::CleaningProgress => {
                             // Allow cancelling cleaning with Escape
                             if key.code == KeyCode::Esc {
@@ -608,7 +672,10 @@ pub fn run() -> anyhow::Result<()> {
                                     let size = f.size();
                                     let chunks = Layout::default()
                                         .direction(Direction::Horizontal)
-                                        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+                                        .constraints([
+                                            Constraint::Percentage(70),
+                                            Constraint::Percentage(30),
+                                        ])
                                         .split(size);
                                     // ... (same table rendering as above)
                                     render_cleaning_progress(f, &app);
@@ -636,7 +703,9 @@ pub fn run() -> anyhow::Result<()> {
                                     projects[i].last_cleaned = Utc::now().to_rfc3339();
                                 }
 
-                                app.update_total_cache_size(app.total_cache_size.saturating_sub(total_freed));
+                                app.update_total_cache_size(
+                                    app.total_cache_size.saturating_sub(total_freed),
+                                );
                                 app.hide_popup();
 
                                 app.set_status(format!(
