@@ -10,7 +10,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Alignment},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Clear},
+    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Clear, Gauge},
     Terminal, Frame,
 };
 use crate::db::{get_all_projects, update_last_cleaned, remove_project};
@@ -19,6 +19,7 @@ use crate::utils::{clean_dir, get_dir_size, human_readable_size};
 enum PopupState {
     None,
     ConfirmDelete,
+    CleaningProgress,
 }
 
 enum RightPanelView {
@@ -34,6 +35,10 @@ struct App {
     popup_state: PopupState,
     total_cache_size: u64,
     right_panel_view: RightPanelView,
+    cleaning_progress: f64,
+    cleaning_current_project: String,
+    cleaning_projects_total: usize,
+    cleaning_projects_done: usize,
 }
 
 impl App {
@@ -46,6 +51,10 @@ impl App {
             popup_state: PopupState::None,
             total_cache_size,
             right_panel_view: RightPanelView::StatsAndHelp,
+            cleaning_progress: 0.0,
+            cleaning_current_project: String::new(),
+            cleaning_projects_total: 0,
+            cleaning_projects_done: 0,
         }
     }
 
@@ -73,6 +82,14 @@ impl App {
         self.popup_state = PopupState::ConfirmDelete;
     }
 
+    fn show_cleaning_progress(&mut self, total: usize) {
+        self.cleaning_projects_total = total;
+        self.cleaning_projects_done = 0;
+        self.cleaning_progress = 0.0;
+        self.cleaning_current_project.clear();
+        self.popup_state = PopupState::CleaningProgress;
+    }
+
     fn hide_popup(&mut self) {
         self.popup_state = PopupState::None;
     }
@@ -89,6 +106,16 @@ impl App {
         self.right_panel_view = match self.right_panel_view {
             RightPanelView::StatsAndHelp => RightPanelView::CacheDirectories,
             RightPanelView::CacheDirectories => RightPanelView::StatsAndHelp,
+        };
+    }
+
+    fn update_cleaning_progress(&mut self, current_project: &str, done: usize) {
+        self.cleaning_current_project = current_project.to_string();
+        self.cleaning_projects_done = done;
+        self.cleaning_progress = if self.cleaning_projects_total > 0 {
+            (done as f64 / self.cleaning_projects_total as f64) * 100.0
+        } else {
+            0.0
         };
     }
 }
@@ -174,6 +201,82 @@ fn render_delete_popup(f: &mut Frame, count: usize, is_multiple: bool) {
         .alignment(Alignment::Center);
 
     f.render_widget(popup, popup_area);
+}
+
+fn render_cleaning_progress(f: &mut Frame, app: &App) {
+    let area = f.size();
+    let popup_width = 60;
+    let popup_height = 12;
+
+    let popup_x = (area.width.saturating_sub(popup_width)) / 2;
+    let popup_y = (area.height.saturating_sub(popup_height)) / 2;
+
+    let popup_area = ratatui::layout::Rect {
+        x: popup_x,
+        y: popup_y,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    f.render_widget(Clear, popup_area);
+
+    let progress_text = vec![
+        Line::raw(""),
+        Line::styled(
+            "🧹 Cleaning Cache Directories",
+            Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Line::raw(""),
+        Line::from(vec![
+            Span::raw("Progress: "),
+            Span::styled(
+                format!("{}/{}", app.cleaning_projects_done, app.cleaning_projects_total),
+                Style::default().fg(Color::Cyan),
+            ),
+        ]),
+        Line::raw(""),
+        Line::from(vec![
+            Span::raw("Current: "),
+            Span::styled(
+                &app.cleaning_current_project,
+                Style::default().fg(Color::Yellow),
+            ),
+        ]),
+        Line::raw(""),
+    ];
+
+    let progress_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Blue))
+        .title(" Cleaning Progress ");
+
+    let progress_gauge = Gauge::default()
+        .block(Block::default())
+        .gauge_style(
+            Style::default()
+                .fg(Color::Green)
+                .bg(Color::DarkGray)
+        )
+        .percent(app.cleaning_progress as u16)
+        .label(format!("{:.1}%", app.cleaning_progress));
+
+    let progress_paragraph = Paragraph::new(progress_text)
+        .block(progress_block)
+        .alignment(Alignment::Center);
+
+    f.render_widget(progress_paragraph, popup_area);
+
+    // Render gauge in the bottom part of the popup
+    let gauge_area = ratatui::layout::Rect {
+        x: popup_area.x + 2,
+        y: popup_area.y + popup_area.height - 4,
+        width: popup_area.width - 4,
+        height: 3,
+    };
+
+    f.render_widget(progress_gauge, gauge_area);
 }
 
 pub fn run() -> anyhow::Result<()> {
@@ -377,10 +480,16 @@ pub fn run() -> anyhow::Result<()> {
             }
 
             // Render popup if visible
-            if let PopupState::ConfirmDelete = app.popup_state {
-                let count = if app.selected_items.is_empty() { 1 } else { app.selected_items.len() };
-                let is_multiple = !app.selected_items.is_empty();
-                render_delete_popup(f, count, is_multiple);
+            match app.popup_state {
+                PopupState::ConfirmDelete => {
+                    let count = if app.selected_items.is_empty() { 1 } else { app.selected_items.len() };
+                    let is_multiple = !app.selected_items.is_empty();
+                    render_delete_popup(f, count, is_multiple);
+                }
+                PopupState::CleaningProgress => {
+                    render_cleaning_progress(f, &app);
+                }
+                PopupState::None => {}
             }
         })?;
 
@@ -388,68 +497,79 @@ pub fn run() -> anyhow::Result<()> {
             if let Event::Key(key) = event::read()? {
                 // Handle popup input
                 if app.is_popup_visible() {
-                    match key.code {
-                        KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
-                            if let PopupState::ConfirmDelete = app.popup_state {
-                                let projects_to_delete: Vec<usize> = if app.selected_items.is_empty() {
-                                    vec![app.selected]
-                                } else {
-                                    app.selected_items.clone()
-                                };
+                    match app.popup_state {
+                        PopupState::ConfirmDelete => {
+                            match key.code {
+                                KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
+                                    let projects_to_delete: Vec<usize> = if app.selected_items.is_empty() {
+                                        vec![app.selected]
+                                    } else {
+                                        app.selected_items.clone()
+                                    };
 
-                                let mut total_size_freed = 0u64;
-                                let mut removed_count = 0;
-                                let mut errors = Vec::new();
+                                    let mut total_size_freed = 0u64;
+                                    let mut removed_count = 0;
+                                    let mut errors = Vec::new();
 
-                                let mut sorted_indexes = projects_to_delete.clone();
-                                sorted_indexes.sort_by(|a, b| b.cmp(a));
+                                    let mut sorted_indexes = projects_to_delete.clone();
+                                    sorted_indexes.sort_by(|a, b| b.cmp(a));
 
-                                for &idx in &sorted_indexes {
-                                    if idx < projects.len() {
-                                        let project_id = projects[idx].id;
-                                        let project_cache_size: u64 = projects[idx].cache_dirs.iter()
-                                            .map(|cd| get_dir_size(cd))
-                                            .sum();
+                                    for &idx in &sorted_indexes {
+                                        if idx < projects.len() {
+                                            let project_id = projects[idx].id;
+                                            let project_cache_size: u64 = projects[idx].cache_dirs.iter()
+                                                .map(|cd| get_dir_size(cd))
+                                                .sum();
 
-                                        if let Err(e) = remove_project(project_id) {
-                                            errors.push(format!("Error removing {}: {}", projects[idx].name, e));
-                                        } else {
-                                            total_size_freed += project_cache_size;
-                                            projects.remove(idx);
-                                            removed_count += 1;
+                                            if let Err(e) = remove_project(project_id) {
+                                                errors.push(format!("Error removing {}: {}", projects[idx].name, e));
+                                            } else {
+                                                total_size_freed += project_cache_size;
+                                                projects.remove(idx);
+                                                removed_count += 1;
+                                            }
                                         }
                                     }
-                                }
 
-                                app.update_total_cache_size(app.total_cache_size.saturating_sub(total_size_freed));
+                                    app.update_total_cache_size(app.total_cache_size.saturating_sub(total_size_freed));
 
-                                if errors.is_empty() {
-                                    if removed_count == 1 {
-                                        app.set_status("✓ Removed 1 project from tracking");
+                                    if errors.is_empty() {
+                                        if removed_count == 1 {
+                                            app.set_status("✓ Removed 1 project from tracking");
+                                        } else {
+                                            app.set_status(format!("✓ Removed {} projects from tracking", removed_count));
+                                        }
                                     } else {
-                                        app.set_status(format!("✓ Removed {} projects from tracking", removed_count));
+                                        app.set_status(format!("⚠ Removed {} projects, {} errors", removed_count, errors.len()));
                                     }
-                                } else {
-                                    app.set_status(format!("⚠ Removed {} projects, {} errors", removed_count, errors.len()));
-                                }
 
-                                if app.selected >= projects.len() && app.selected > 0 {
-                                    app.selected = projects.len() - 1;
-                                }
+                                    if app.selected >= projects.len() && app.selected > 0 {
+                                        app.selected = projects.len() - 1;
+                                    }
 
-                                app.selected_items.clear();
+                                    app.selected_items.clear();
 
-                                if projects.is_empty() {
-                                    app.exit = true;
+                                    if projects.is_empty() {
+                                        app.exit = true;
+                                    }
+
+                                    app.hide_popup();
                                 }
+                                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                                    app.hide_popup();
+                                    app.set_status("✗ Cancelled removal");
+                                }
+                                _ => {}
                             }
-                            app.hide_popup();
                         }
-                        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                            app.hide_popup();
-                            app.set_status("✗ Cancelled removal");
+                        PopupState::CleaningProgress => {
+                            // Allow cancelling cleaning with Escape
+                            if key.code == KeyCode::Esc {
+                                app.hide_popup();
+                                app.set_status("✗ Cleaning cancelled");
+                            }
                         }
-                        _ => {}
+                        PopupState::None => {}
                     }
                 } else {
                     // Normal navigation
@@ -480,19 +600,44 @@ pub fn run() -> anyhow::Result<()> {
                             if selected_indexes.is_empty() {
                                 app.set_status("⚠ No projects selected to clean");
                             } else {
+                                // Show progress popup
+                                app.show_cleaning_progress(selected_indexes.len());
+
+                                // Force immediate UI update to show the progress popup
+                                terminal.draw(|f| {
+                                    let size = f.size();
+                                    let chunks = Layout::default()
+                                        .direction(Direction::Horizontal)
+                                        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+                                        .split(size);
+                                    // ... (same table rendering as above)
+                                    render_cleaning_progress(f, &app);
+                                })?;
+
                                 let mut total_freed = 0;
+                                let mut current_index = 0;
+
                                 for &i in &selected_indexes {
+                                    current_index += 1;
                                     let proj = &projects[i];
+
+                                    // Update progress
+                                    app.update_cleaning_progress(&proj.name, current_index);
+                                    terminal.draw(|f| render_cleaning_progress(f, &app))?;
+
+                                    // Clean cache directories
                                     for cache_dir in &proj.cache_dirs {
                                         let size = get_dir_size(cache_dir);
                                         clean_dir(cache_dir)?;
                                         total_freed += size;
                                     }
+
                                     update_last_cleaned(proj.id)?;
                                     projects[i].last_cleaned = Utc::now().to_rfc3339();
                                 }
 
                                 app.update_total_cache_size(app.total_cache_size.saturating_sub(total_freed));
+                                app.hide_popup();
 
                                 app.set_status(format!(
                                     "✓ Cleaned {} project(s) — freed {}",
