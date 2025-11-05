@@ -541,184 +541,183 @@ pub fn run() -> anyhow::Result<()> {
             }
         })?;
 
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                // Handle popup input
-                if app.is_popup_visible() {
-                    match app.popup_state {
-                        PopupState::ConfirmDelete => match key.code {
-                            KeyCode::Char('y')
-                            | KeyCode::Char('d')
-                            | KeyCode::Char('Y')
-                            | KeyCode::Char('D') => {
-                                let projects_to_delete: Vec<usize> =
-                                    if app.selected_items.is_empty() {
-                                        vec![app.selected]
+        if event::poll(std::time::Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            // Handle popup input
+            if app.is_popup_visible() {
+                match app.popup_state {
+                    PopupState::ConfirmDelete => match key.code {
+                        KeyCode::Char('y')
+                        | KeyCode::Char('d')
+                        | KeyCode::Char('Y')
+                        | KeyCode::Char('D') => {
+                            let projects_to_delete: Vec<usize> = if app.selected_items.is_empty() {
+                                vec![app.selected]
+                            } else {
+                                app.selected_items.clone()
+                            };
+
+                            let mut total_size_freed = 0u64;
+                            let mut removed_count = 0;
+                            let mut errors = Vec::new();
+
+                            let mut sorted_indexes = projects_to_delete.clone();
+                            sorted_indexes.sort_by(|a, b| b.cmp(a));
+
+                            for &idx in &sorted_indexes {
+                                if idx < projects.len() {
+                                    let project_id = projects[idx].id;
+                                    let project_cache_size: u64 = projects[idx]
+                                        .cache_dirs
+                                        .iter()
+                                        .map(|cd| get_dir_size(cd))
+                                        .sum();
+
+                                    if let Err(e) = remove_project(project_id) {
+                                        errors.push(format!(
+                                            "Error removing {}: {}",
+                                            projects[idx].name, e
+                                        ));
                                     } else {
-                                        app.selected_items.clone()
-                                    };
-
-                                let mut total_size_freed = 0u64;
-                                let mut removed_count = 0;
-                                let mut errors = Vec::new();
-
-                                let mut sorted_indexes = projects_to_delete.clone();
-                                sorted_indexes.sort_by(|a, b| b.cmp(a));
-
-                                for &idx in &sorted_indexes {
-                                    if idx < projects.len() {
-                                        let project_id = projects[idx].id;
-                                        let project_cache_size: u64 = projects[idx]
-                                            .cache_dirs
-                                            .iter()
-                                            .map(|cd| get_dir_size(cd))
-                                            .sum();
-
-                                        if let Err(e) = remove_project(project_id) {
-                                            errors.push(format!(
-                                                "Error removing {}: {}",
-                                                projects[idx].name, e
-                                            ));
-                                        } else {
-                                            total_size_freed += project_cache_size;
-                                            projects.remove(idx);
-                                            removed_count += 1;
-                                        }
+                                        total_size_freed += project_cache_size;
+                                        projects.remove(idx);
+                                        removed_count += 1;
                                     }
                                 }
+                            }
 
-                                app.update_total_cache_size(
-                                    app.total_cache_size.saturating_sub(total_size_freed),
-                                );
+                            app.update_total_cache_size(
+                                app.total_cache_size.saturating_sub(total_size_freed),
+                            );
 
-                                if errors.is_empty() {
-                                    if removed_count == 1 {
-                                        app.set_status("✓ Removed 1 project from tracking");
-                                    } else {
-                                        app.set_status(format!(
-                                            "✓ Removed {} projects from tracking",
-                                            removed_count
-                                        ));
-                                    }
+                            if errors.is_empty() {
+                                if removed_count == 1 {
+                                    app.set_status("✓ Removed 1 project from tracking");
                                 } else {
                                     app.set_status(format!(
-                                        "⚠ Removed {} projects, {} errors",
-                                        removed_count,
-                                        errors.len()
+                                        "✓ Removed {} projects from tracking",
+                                        removed_count
                                     ));
                                 }
-
-                                if app.selected >= projects.len() && app.selected > 0 {
-                                    app.selected = projects.len() - 1;
-                                }
-
-                                app.selected_items.clear();
-
-                                if projects.is_empty() {
-                                    app.exit = true;
-                                }
-
-                                app.hide_popup();
-                            }
-                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                                app.hide_popup();
-                                app.set_status("✗ Cancelled removal");
-                            }
-                            _ => {}
-                        },
-                        PopupState::CleaningProgress => {
-                            // Allow cancelling cleaning with Escape
-                            if key.code == KeyCode::Esc {
-                                app.hide_popup();
-                                app.set_status("✗ Cleaning cancelled");
-                            }
-                        }
-                        PopupState::None => {}
-                    }
-                } else {
-                    // Normal navigation
-                    match key.code {
-                        KeyCode::Char('q') => app.exit = true,
-                        KeyCode::Tab => app.toggle_right_panel(),
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if app.selected + 1 < projects.len() {
-                                app.selected += 1;
-                            }
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if app.selected > 0 {
-                                app.selected -= 1;
-                            }
-                        }
-                        KeyCode::Char(' ') => app.toggle_select(),
-                        KeyCode::Char('a') => app.toggle_select_all(projects.len()),
-                        KeyCode::Char('d') | KeyCode::Char('D') => {
-                            if projects.is_empty() {
-                                app.set_status("⚠ No projects to remove");
                             } else {
-                                app.show_delete_confirmation();
-                            }
-                        }
-                        KeyCode::Enter => {
-                            let selected_indexes: Vec<usize> = app.selected_items.clone();
-                            if selected_indexes.is_empty() {
-                                app.set_status("⚠ No projects selected to clean");
-                            } else {
-                                // Show progress popup
-                                app.show_cleaning_progress(selected_indexes.len());
-
-                                // Force immediate UI update to show the progress popup
-                                terminal.draw(|f| {
-                                    let size = f.size();
-                                    let chunks = Layout::default()
-                                        .direction(Direction::Horizontal)
-                                        .constraints([
-                                            Constraint::Percentage(70),
-                                            Constraint::Percentage(30),
-                                        ])
-                                        .split(size);
-                                    // ... (same table rendering as above)
-                                    render_cleaning_progress(f, &app);
-                                })?;
-
-                                let mut total_freed = 0;
-                                let mut current_index = 0;
-
-                                for &i in &selected_indexes {
-                                    current_index += 1;
-                                    let proj = &projects[i];
-
-                                    // Update progress
-                                    app.update_cleaning_progress(&proj.name, current_index);
-                                    terminal.draw(|f| render_cleaning_progress(f, &app))?;
-
-                                    // Clean cache directories
-                                    for cache_dir in &proj.cache_dirs {
-                                        let size = get_dir_size(cache_dir);
-                                        clean_dir(cache_dir)?;
-                                        total_freed += size;
-                                    }
-
-                                    update_last_cleaned(proj.id)?;
-                                    projects[i].last_cleaned = Utc::now().to_rfc3339();
-                                }
-
-                                app.update_total_cache_size(
-                                    app.total_cache_size.saturating_sub(total_freed),
-                                );
-                                app.hide_popup();
-
                                 app.set_status(format!(
-                                    "✓ Cleaned {} project(s) — freed {}",
-                                    selected_indexes.len(),
-                                    human_readable_size(total_freed)
+                                    "⚠ Removed {} projects, {} errors",
+                                    removed_count,
+                                    errors.len()
                                 ));
-
-                                app.selected_items.clear();
                             }
+
+                            if app.selected >= projects.len() && app.selected > 0 {
+                                app.selected = projects.len() - 1;
+                            }
+
+                            app.selected_items.clear();
+
+                            if projects.is_empty() {
+                                app.exit = true;
+                            }
+
+                            app.hide_popup();
+                        }
+                        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                            app.hide_popup();
+                            app.set_status("✗ Cancelled removal");
                         }
                         _ => {}
+                    },
+                    PopupState::CleaningProgress => {
+                        // Allow cancelling cleaning with Escape
+                        if key.code == KeyCode::Esc {
+                            app.hide_popup();
+                            app.set_status("✗ Cleaning cancelled");
+                        }
                     }
+                    PopupState::None => {}
+                }
+            } else {
+                // Normal navigation
+                match key.code {
+                    KeyCode::Char('q') => app.exit = true,
+                    KeyCode::Tab => app.toggle_right_panel(),
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if app.selected + 1 < projects.len() {
+                            app.selected += 1;
+                        }
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if app.selected > 0 {
+                            app.selected -= 1;
+                        }
+                    }
+                    KeyCode::Char(' ') => app.toggle_select(),
+                    KeyCode::Char('a') => app.toggle_select_all(projects.len()),
+                    KeyCode::Char('d') | KeyCode::Char('D') => {
+                        if projects.is_empty() {
+                            app.set_status("⚠ No projects to remove");
+                        } else {
+                            app.show_delete_confirmation();
+                        }
+                    }
+                    KeyCode::Enter => {
+                        let selected_indexes: Vec<usize> = app.selected_items.clone();
+                        if selected_indexes.is_empty() {
+                            app.set_status("⚠ No projects selected to clean");
+                        } else {
+                            // Show progress popup
+                            app.show_cleaning_progress(selected_indexes.len());
+
+                            // Force immediate UI update to show the progress popup
+                            terminal.draw(|f| {
+                                let size = f.size();
+                                let _chunks = Layout::default()
+                                    .direction(Direction::Horizontal)
+                                    .constraints([
+                                        Constraint::Percentage(70),
+                                        Constraint::Percentage(30),
+                                    ])
+                                    .split(size);
+                                // ... (same table rendering as above)
+                                render_cleaning_progress(f, &app);
+                            })?;
+
+                            let mut total_freed = 0;
+                            let mut current_index = 0;
+
+                            for &i in &selected_indexes {
+                                current_index += 1;
+                                let proj = &projects[i];
+
+                                // Update progress
+                                app.update_cleaning_progress(&proj.name, current_index);
+                                terminal.draw(|f| render_cleaning_progress(f, &app))?;
+
+                                // Clean cache directories
+                                for cache_dir in &proj.cache_dirs {
+                                    let size = get_dir_size(cache_dir);
+                                    clean_dir(cache_dir)?;
+                                    total_freed += size;
+                                }
+
+                                update_last_cleaned(proj.id)?;
+                                projects[i].last_cleaned = Utc::now().to_rfc3339();
+                            }
+
+                            app.update_total_cache_size(
+                                app.total_cache_size.saturating_sub(total_freed),
+                            );
+                            app.hide_popup();
+
+                            app.set_status(format!(
+                                "✓ Cleaned {} project(s) — freed {}",
+                                selected_indexes.len(),
+                                human_readable_size(total_freed)
+                            ));
+
+                            app.selected_items.clear();
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
