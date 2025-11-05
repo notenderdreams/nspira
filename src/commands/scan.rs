@@ -1,5 +1,5 @@
 use crate::db::{add_project, get_all_projects};
-use crate::utils::logger::{ask_input, info, success, task};
+use crate::utils::logger::{info, success, task};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -18,7 +18,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 use std::io;
 
@@ -255,34 +255,34 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
     while !app.exit {
         terminal.draw(|f| render_scan_ui(f, &app))?;
 
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => app.exit = true,
-                    KeyCode::Down | KeyCode::Char('j') => {
-                        if app.selected + 1 < app.detected_projects.len() {
-                            app.selected += 1;
-                        }
+        if event::poll(std::time::Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            match key.code {
+                KeyCode::Char('q') => app.exit = true,
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if app.selected + 1 < app.detected_projects.len() {
+                        app.selected += 1;
                     }
-                    KeyCode::Up | KeyCode::Char('k') => {
-                        if app.selected > 0 {
-                            app.selected -= 1;
-                        }
-                    }
-                    KeyCode::Char(' ') => app.toggle_select(),
-                    KeyCode::Char('a') => app.toggle_select_all(),
-                    KeyCode::Enter => {
-                        if app.selected_items.is_empty() {
-                            app.set_status("⚠ No projects selected");
-                        } else {
-                            match app.add_selected_projects() {
-                                Ok(_) => app.exit = true,
-                                Err(e) => app.set_status(format!("Error adding projects: {}", e)),
-                            }
-                        }
-                    }
-                    _ => {}
                 }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    if app.selected > 0 {
+                        app.selected -= 1;
+                    }
+                }
+                KeyCode::Char(' ') => app.toggle_select(),
+                KeyCode::Char('a') => app.toggle_select_all(),
+                KeyCode::Enter => {
+                    if app.selected_items.is_empty() {
+                        app.set_status("⚠ No projects selected");
+                    } else {
+                        match app.add_selected_projects() {
+                            Ok(_) => app.exit = true,
+                            Err(e) => app.set_status(format!("Error adding projects: {}", e)),
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -299,11 +299,11 @@ impl ScanConfig {
         // Try to load from user config first
         let config_path = dirs::config_dir().map(|d| d.join("nspira").join("patterns.json"));
 
-        if let Some(path) = &config_path {
-            if path.exists() {
-                let content = fs::read_to_string(path)?;
-                return Ok(serde_json::from_str(&content)?);
-            }
+        if let Some(path) = &config_path
+            && path.exists()
+        {
+            let content = fs::read_to_string(path)?;
+            return Ok(serde_json::from_str(&content)?);
         }
 
         // Fallback to embedded default from lib.rs

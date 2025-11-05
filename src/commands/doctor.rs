@@ -427,14 +427,13 @@ fn render_doctor_ui(f: &mut Frame, app: &DoctorApp) {
     f.render_widget(details_block, chunks[2]);
 
     // Render popup if visible - THIS WAS MISSING!
-    if app.is_popup_visible() {
-        if let PopupState::ConfirmRemove = app.popup_state {
-            if app.selected < app.project_healths.len() {
-                let project_name = &app.project_healths[app.selected].project_name;
-                let project_id = app.project_healths[app.selected].project_id;
-                render_remove_popup(f, project_name, project_id);
-            }
-        }
+    if app.is_popup_visible()
+        && let PopupState::ConfirmRemove = app.popup_state
+        && app.selected < app.project_healths.len()
+    {
+        let project_name = &app.project_healths[app.selected].project_name;
+        let project_id = app.project_healths[app.selected].project_id;
+        render_remove_popup(f, project_name, project_id);
     }
 }
 
@@ -460,56 +459,56 @@ fn run_doctor_tui(
     while !app.exit {
         terminal.draw(|f| render_doctor_ui(f, &app))?;
 
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                // Handle popup input
-                if app.is_popup_visible() {
-                    match app.popup_state {
-                        PopupState::ConfirmRemove => match key.code {
-                            KeyCode::Char('y')
-                            | KeyCode::Char('d')
-                            | KeyCode::Char('Y')
-                            | KeyCode::Char('D') => {
-                                if let Err(e) = app.remove_current_project() {
-                                    app.set_status(format!("Error removing project: {}", e));
-                                }
-                                app.hide_popup();
+        if event::poll(std::time::Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+        {
+            // Handle popup input
+            if app.is_popup_visible() {
+                match app.popup_state {
+                    PopupState::ConfirmRemove => match key.code {
+                        KeyCode::Char('y')
+                        | KeyCode::Char('d')
+                        | KeyCode::Char('Y')
+                        | KeyCode::Char('D') => {
+                            if let Err(e) = app.remove_current_project() {
+                                app.set_status(format!("Error removing project: {}", e));
                             }
-                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                                app.hide_popup();
-                                app.set_status("Cancelled removal");
-                            }
-                            _ => {}
-                        },
-                        PopupState::None => {}
-                    }
-                } else {
-                    // Normal navigation
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => app.exit = true,
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if app.selected + 1 < app.project_healths.len() {
-                                app.selected += 1;
-                            }
+                            app.hide_popup();
                         }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if app.selected > 0 {
-                                app.selected -= 1;
-                            }
-                        }
-                        KeyCode::Home => app.selected = 0,
-                        KeyCode::End => {
-                            if !app.project_healths.is_empty() {
-                                app.selected = app.project_healths.len() - 1;
-                            }
-                        }
-                        KeyCode::Char('d') | KeyCode::Char('D') => {
-                            if !app.project_healths.is_empty() {
-                                app.show_remove_confirmation();
-                            }
+                        KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                            app.hide_popup();
+                            app.set_status("Cancelled removal");
                         }
                         _ => {}
+                    },
+                    PopupState::None => {}
+                }
+            } else {
+                // Normal navigation
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => app.exit = true,
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if app.selected + 1 < app.project_healths.len() {
+                            app.selected += 1;
+                        }
                     }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if app.selected > 0 {
+                            app.selected -= 1;
+                        }
+                    }
+                    KeyCode::Home => app.selected = 0,
+                    KeyCode::End => {
+                        if !app.project_healths.is_empty() {
+                            app.selected = app.project_healths.len() - 1;
+                        }
+                    }
+                    KeyCode::Char('d') | KeyCode::Char('D') => {
+                        if !app.project_healths.is_empty() {
+                            app.show_remove_confirmation();
+                        }
+                    }
+                    _ => {}
                 }
             }
         }

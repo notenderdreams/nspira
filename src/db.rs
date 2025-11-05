@@ -65,7 +65,7 @@ pub fn get_project_by_id(id: i32) -> Result<Option<Project>> {
     let conn = connect()?;
     let mut stmt =
         conn.prepare("SELECT id, name, path, cache_dir, last_cleaned FROM projects WHERE id = ?1")?;
-    let project_iter = stmt.query_map(params![id], |row| {
+    let mut project_iter = stmt.query_map(params![id], |row| {
         let cache_json: String = row.get(3)?;
         let cache_dirs: Vec<String> = serde_json::from_str(&cache_json).unwrap_or_default();
         Ok(Project {
@@ -77,7 +77,7 @@ pub fn get_project_by_id(id: i32) -> Result<Option<Project>> {
         })
     })?;
 
-    for project in project_iter {
+    if let Some(project) = project_iter.next() {
         return Ok(Some(project?));
     }
     Ok(None)
