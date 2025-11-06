@@ -1,13 +1,15 @@
-use crate::db::{project_exists, remove_project};
+use crate::db;
 use crate::utils::logger::{error, success};
 
 pub fn run(id: i32) -> anyhow::Result<()> {
-    if !project_exists(id)? {
+    let conn = db::connect()?;
+
+    if !db::project_exists(&conn, id)? {
         error(&format!("No project found with ID {}", id));
         return anyhow::Ok(());
     }
 
-    remove_project(id)?;
+    db::remove_project(&conn, id)?;
 
     success(&format!("Removed project with ID {}", id));
 

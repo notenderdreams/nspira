@@ -1,4 +1,4 @@
-use crate::db::add_project;
+use crate::db;
 use crate::utils::logger::{ask_input, info, success};
 use colored::Colorize;
 use std::path::{Path, PathBuf};
@@ -72,17 +72,19 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
 
     let cache_count = cache_paths.len();
 
-    match add_project(project_name, &project_path, cache_paths) {
-        Ok(_) => {
-            success(&format!(
-                "New project created with {} cache director{}",
-                cache_count,
-                if cache_count == 1 { "y" } else { "ies" }
-            ));
-            Ok(())
-        }
-        Err(e) => {
-            anyhow::bail!("Failed to add project to database: {}", e);
-        }
+    let conn = db::connect()?;
+    let project_id = db::add_project(&conn, project_name, &project_path)?;
+
+    // Add cache directories
+    for cache_path in cache_paths {
+        db::add_cache_directory(&conn, project_id, &cache_path)?;
     }
+
+    success(&format!(
+        "New project created with {} cache director{}",
+        cache_count,
+        if cache_count == 1 { "y" } else { "ies" }
+    ));
+
+    Ok(())
 }
