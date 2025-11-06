@@ -1,4 +1,4 @@
-use crate::db::add_project;
+use crate::db;
 use crate::utils::logger;
 use crate::utils::logger::{info, success};
 use colored::Colorize;
@@ -95,7 +95,13 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
         .collect();
 
     // Add project
-    let _ = add_project(&project_name, project_dir.to_str().unwrap(), cache_paths)?;
+    let conn = db::connect()?;
+    let project_id = db::add_project(&conn, &project_name, project_dir.to_str().unwrap())?;
+
+    // Add cache directories
+    for cache_path in &cache_paths {
+        db::add_cache_directory(&conn, project_id, cache_path)?;
+    }
 
     // Confirm
     println!();

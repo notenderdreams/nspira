@@ -12,13 +12,7 @@ use utils::logger::*;
     │     🌿  n s p i r a  🌿      │
     └────────────────────────────┘
 Lightweight cache manager for developers
-    "#,
-    after_help = "Examples:\n  \
-                  nspira init                           Auto-detect project in current directory\n  \
-                  nspira add myapp target node_modules  Add project with multiple cache dirs\n  \
-                  nspira list                           Show all tracked caches\n  \
-                  nspira clean                          Clean all caches safely\n  \
-                  nspira stats                          View storage statistics"
+    "#
 )]
 pub struct Cli {
     #[command(subcommand)]

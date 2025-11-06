@@ -1,11 +1,9 @@
-use crate::db::{add_project, get_all_projects};
+use crate::core::{DetectedProject, ScanConfig, Scanner};
+use crate::db;
 use crate::utils::logger::{info, success, task};
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fs;
-use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
+use std::path::PathBuf;
 
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -21,27 +19,6 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
 use std::io;
-
-#[derive(Debug, Deserialize, Serialize)]
-struct ProjectPattern {
-    name: String,
-    identifier: String,
-    cache_dirs: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct ScanConfig {
-    patterns: Vec<ProjectPattern>,
-    skip_dirs: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-struct DetectedProject {
-    name: String,
-    path: PathBuf,
-    project_type: String,
-    cache_dirs: Vec<PathBuf>,
-}
 
 struct ScanApp {
     detected_projects: Vec<DetectedProject>,
@@ -83,6 +60,7 @@ impl ScanApp {
     }
 
     fn add_selected_projects(&self) -> Result<()> {
+        let conn = db::connect()?;
         let mut added_count = 0;
 
         for &idx in &self.selected_items {
@@ -97,7 +75,13 @@ impl ScanApp {
                     .collect();
 
                 // Add project to database
-                add_project(&project.name, project.path.to_str().unwrap(), cache_paths)?;
+                let project_id =
+                    db::add_project(&conn, &project.name, project.path.to_str().unwrap())?;
+
+                // Add cache directories
+                for cache_path in cache_paths {
+                    db::add_cache_directory(&conn, project_id, &cache_path)?;
+                }
 
                 added_count += 1;
             }
@@ -294,22 +278,7 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
     Ok(())
 }
 
-impl ScanConfig {
-    fn load() -> Result<Self> {
-        // Try to load from user config first
-        let config_path = dirs::config_dir().map(|d| d.join("nspira").join("patterns.json"));
-
-        if let Some(path) = &config_path
-            && path.exists()
-        {
-            let content = fs::read_to_string(path)?;
-            return Ok(serde_json::from_str(&content)?);
-        }
-
-        // Fallback to embedded default from lib.rs
-        Ok(serde_json::from_str(crate::DEFAULT_PATTERNS)?)
-    }
-}
+// Moved to core::scanner module
 
 pub fn run() -> Result<()> {
     task("Loading scan patterns...");
@@ -325,7 +294,8 @@ pub fn run() -> Result<()> {
     println!();
 
     let tracked_paths = get_tracked_paths()?;
-    let detected = scan_filesystem(&start_path, &config, &tracked_paths)?;
+    let scanner = Scanner::new(config, tracked_paths);
+    let detected = scanner.scan(&start_path, 4)?;
 
     // Run TUI for project selection
     run_scan_tui(detected)?;
@@ -334,95 +304,9 @@ pub fn run() -> Result<()> {
 }
 
 fn get_tracked_paths() -> Result<HashSet<PathBuf>> {
-    let projects = get_all_projects()?;
+    let projects = crate::core::ProjectManager::get_all()?;
     Ok(projects
         .into_iter()
         .map(|p| PathBuf::from(p.path))
         .collect())
-}
-
-fn scan_filesystem(
-    start_path: &Path,
-    config: &ScanConfig,
-    tracked_paths: &HashSet<PathBuf>,
-) -> Result<Vec<DetectedProject>> {
-    let mut detected = Vec::new();
-    let skip_set: HashSet<String> = config.skip_dirs.iter().cloned().collect();
-    let mut scanned_count = 0;
-
-    let walker = WalkDir::new(start_path)
-        .max_depth(4)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|e| {
-            let name = e.file_name().to_string_lossy();
-            !skip_set.contains(name.as_ref())
-        });
-
-    for entry in walker.filter_map(|e| e.ok()) {
-        if !entry.file_type().is_dir() {
-            continue;
-        }
-
-        scanned_count += 1;
-        if scanned_count % 100 == 0 {
-            print!("\rScanning... {} directories checked", scanned_count);
-            use std::io::{self, Write};
-            io::stdout().flush().unwrap();
-        }
-
-        let path = entry.path();
-
-        // Skip if already tracked
-        if tracked_paths.contains(path) {
-            continue;
-        }
-
-        // Check if this directory matches any pattern
-        if let Some(project) = detect_project(path, config) {
-            detected.push(project);
-        }
-    }
-
-    if scanned_count > 0 {
-        println!("\rScanned {} directories", scanned_count);
-    }
-
-    Ok(detected)
-}
-
-fn detect_project(path: &Path, config: &ScanConfig) -> Option<DetectedProject> {
-    for pattern in &config.patterns {
-        let identifier_path = path.join(&pattern.identifier);
-
-        if identifier_path.exists() {
-            // Find which cache directories actually exist
-            let mut found_caches = Vec::new();
-
-            for cache_dir in &pattern.cache_dirs {
-                let cache_path = path.join(cache_dir);
-                if cache_path.exists() && cache_path.is_dir() {
-                    found_caches.push(cache_path);
-                }
-            }
-
-            // Only return if we found at least one cache directory
-            if !found_caches.is_empty() {
-                let project_name = path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string();
-
-                return Some(DetectedProject {
-                    name: project_name,
-                    path: path.to_path_buf(),
-                    project_type: pattern.name.clone(),
-                    cache_dirs: found_caches,
-                });
-            }
-        }
-    }
-
-    None
 }

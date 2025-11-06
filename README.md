@@ -7,7 +7,7 @@
 
 ---
 
-##  Features
+## Features
 
 - **Smart Project Detection** - Automatically detects projects and their cache directories
 - **Visual Interface** - Beautiful TUI for managing projects and viewing statistics
@@ -54,12 +54,14 @@ nspira scan
 
 ---
 
-##  Commands
+## Commands
 
 ### `nspira init`
+
 Initialize a new project in the current directory. Automatically detects common cache directories based on project type.
 
 **Supported project types:**
+
 - **Node.js** - `node_modules`, `.next`, `dist`, `build`
 - **Rust** - `target`
 - **Java/Maven** - `target`
@@ -68,6 +70,7 @@ Initialize a new project in the current directory. Automatically detects common 
 - **Python** - `__pycache__`, `.venv`, `venv`
 
 ### `nspira add <name> <cache_dirs...>`
+
 Manually add a project with specified cache directories.
 
 ```bash
@@ -77,17 +80,20 @@ nspira add java-app target build
 ```
 
 ### `nspira list`
+
 Launch interactive TUI to view and manage all tracked projects.
 
 **TUI Features:**
--  View all projects with sizes and last cleaned dates
--  Multi-select projects with spacebar
--  Clean selected projects with progress bar
--  Remove projects from tracking
--  View cache directory details
--  Sort and filter projects
+
+- View all projects with sizes and last cleaned dates
+- Multi-select projects with spacebar
+- Clean selected projects with progress bar
+- Remove projects from tracking
+- View cache directory details
+- Sort and filter projects
 
 ### `nspira clean [id]`
+
 Clean cache directories. Without ID, cleans all projects.
 
 ```bash
@@ -96,27 +102,33 @@ nspira clean 1    # Clean project with ID 1
 ```
 
 ### `nspira doctor`
+
 Check health of all tracked projects and identify issues.
 
 **Checks:**
--  Project paths exist
--  Cache directories exist
--  Provides fixes for missing paths
--  Remove broken projects directly from TUI
+
+- Project paths exist
+- Cache directories exist
+- Provides fixes for missing paths
+- Remove broken projects directly from TUI
 
 ### `nspira scan`
+
 Scan your filesystem for projects with cache directories that aren't being tracked.
 
 **Features:**
--  Scans from home directory
--  Multi-select interface to add projects
--  Smart pattern matching
--  Skip already tracked projects
+
+- Scans from home directory
+- Multi-select interface to add projects
+- Smart pattern matching
+- Skip already tracked projects
 
 ### `nspira stats`
+
 Show cache statistics across all projects.
 
 ### `nspira remove <id>`
+
 Remove a project from tracking.
 
 ```bash
@@ -124,11 +136,12 @@ nspira remove 1
 ```
 
 ### `nspira flush`
+
 Delete the entire database (use with caution!).
 
 ---
 
-##  Interactive TUI Guide
+## Interactive TUI Guide
 
 ### List Command (`nspira list`)
 
@@ -142,6 +155,7 @@ Delete the entire database (use with caution!).
 ```
 
 **Controls:**
+
 - `↑/↓` or `j/k` - Navigate projects
 - `Space` - Select/deselect project
 - `a` - Select/deselect all projects
@@ -163,6 +177,7 @@ Delete the entire database (use with caution!).
 ```
 
 **Features:**
+
 - Color-coded health status
 - Detailed issue reporting
 - Direct removal of problematic projects
@@ -172,9 +187,7 @@ Delete the entire database (use with caution!).
 
 ## ⚙️ Configuration
 
-### Custom Patterns
-
-Create `~/.config/nspira/patterns.json` to define custom project detection patterns:
+Path : `~/.config/nspira/patterns.json`:
 
 ```json
 {
@@ -182,17 +195,26 @@ Create `~/.config/nspira/patterns.json` to define custom project detection patte
     {
       "name": "My Framework",
       "identifier": "myframework.json",
-      "cache_dirs": ["cache", "temp", "build"]
+      "cache_dirs": [
+        "cache",
+        "temp",
+        "build"
+      ]
     }
   ],
-  "skip_dirs": [".git", ".svn", "node_modules"]
+  "skip_dirs": [
+    ".git",
+    ".svn",
+    "node_modules"
+  ]
 }
 ```
 
 ### Database Location
 
 - **Development**: `./nspira.db`
-- **Production**: `~/.local/share/nspira/nspira.db`
+- **Production**: `~/.local/share/nspira/nspira.db` (Linux/macOS)
+- **Production**: `%APPDATA%\nspira\nspira.db` (Windows)
 
 ---
 
@@ -207,24 +229,9 @@ cargo build
 cargo test
 ```
 
-### Project Structure
-
-```
-nspira/
-├── src/
-│   ├── main.rs          # Entry point
-│   ├── lib.rs           # Library root
-│   ├── cli.rs           # CLI argument parsing
-│   ├── db.rs            # Database operations
-│   ├── commands/        # Command implementations
-│   └── utils/           # Utility functions
-├── patterns.json        # Default detection patterns
-└── Cargo.toml          # Dependencies
-```
-
 ---
 
-##  Contributing
+## Contributing
 
 We welcome contributions! Please feel free to submit issues, feature requests, or pull requests.
 
@@ -247,14 +254,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Common Issues
 
 **"Project not found" errors:**
+
 - Ensure project paths are correct
 - Use `nspira doctor` to check project health
 
 **Permission errors:**
+
 - Run with appropriate permissions for cache directories
 - Check database file permissions
 
 **Database issues:**
+
 - Use `nspira flush` to reset (⚠️ deletes all data)
 - Check disk space
 

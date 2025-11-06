@@ -1,4 +1,4 @@
-use crate::db::{get_all_projects, remove_project, update_last_cleaned};
+use crate::db;
 use crate::utils::{clean_dir, get_dir_size, human_readable_size};
 use chrono::Utc;
 use crossterm::{
@@ -282,7 +282,8 @@ fn render_cleaning_progress(f: &mut Frame, app: &App) {
 }
 
 pub fn run() -> anyhow::Result<()> {
-    let mut projects = get_all_projects()?;
+    let conn = db::connect()?;
+    let mut projects = db::get_all_projects(&conn)?;
     if projects.is_empty() {
         println!("No projects found.");
         return Ok(());
@@ -574,7 +575,7 @@ pub fn run() -> anyhow::Result<()> {
                                         .map(|cd| get_dir_size(cd))
                                         .sum();
 
-                                    if let Err(e) = remove_project(project_id) {
+                                    if let Err(e) = db::remove_project(&conn, project_id) {
                                         errors.push(format!(
                                             "Error removing {}: {}",
                                             projects[idx].name, e
@@ -699,7 +700,7 @@ pub fn run() -> anyhow::Result<()> {
                                     total_freed += size;
                                 }
 
-                                update_last_cleaned(proj.id)?;
+                                db::update_project_last_cleaned(&conn, proj.id)?;
                                 projects[i].last_cleaned = Utc::now().to_rfc3339();
                             }
 

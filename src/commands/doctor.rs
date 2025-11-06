@@ -1,4 +1,4 @@
-use crate::db::{get_all_projects, remove_project};
+use crate::db;
 use crate::utils::logger::{info, task};
 use anyhow::Result;
 use std::path::Path;
@@ -77,7 +77,8 @@ impl DoctorApp {
             let project_id = self.project_healths[self.selected].project_id;
             let project_name = self.project_healths[self.selected].project_name.clone();
 
-            remove_project(project_id)?;
+            let conn = db::connect()?;
+            db::remove_project(&conn, project_id)?;
             self.project_healths.remove(self.selected);
 
             // Update counts
@@ -524,7 +525,8 @@ fn run_doctor_tui(
 pub fn run() -> Result<()> {
     task("Running health check...");
 
-    let projects = get_all_projects()?;
+    let conn = db::connect()?;
+    let projects = db::get_all_projects(&conn)?;
     if projects.is_empty() {
         info("No projects found in database.");
         return Ok(());
