@@ -58,7 +58,7 @@ impl Scanner {
 
     pub fn scan(&self, start_path: &Path, max_depth: usize) -> Result<Vec<DetectedProject>> {
         println!("🚀 Starting parallel scan...");
-        
+
         // First, collect all directories to scan
         let mut all_dirs = Vec::new();
         let skip_set: HashSet<String> = self.config.skip_dirs.iter().cloned().collect();
@@ -75,7 +75,7 @@ impl Scanner {
         for entry in walker.filter_map(|e| e.ok()) {
             if entry.file_type().is_dir() {
                 let path = entry.path();
-                
+
                 // Skip if already tracked
                 if !self.tracked_paths.contains(path) {
                     all_dirs.push(path.to_path_buf());
@@ -86,45 +86,10 @@ impl Scanner {
         println!("📁 Found {} directories to scan", all_dirs.len());
 
         // Use parallel project detection
-        let detected = crate::utils::parallel::detect_projects_parallel(&all_dirs, &self.config.patterns);
+        let detected =
+            crate::utils::parallel::detect_projects_parallel(&all_dirs, &self.config.patterns);
 
         println!("✅ Detected {} projects", detected.len());
         Ok(detected)
-    }
-
-    fn detect_project(&self, path: &Path) -> Option<DetectedProject> {
-        for pattern in &self.config.patterns {
-            let identifier_path = path.join(&pattern.identifier);
-
-            if identifier_path.exists() {
-                // Find which cache directories actually exist
-                let mut found_caches = Vec::new();
-
-                for cache_dir in &pattern.cache_dirs {
-                    let cache_path = path.join(cache_dir);
-                    if cache_path.exists() && cache_path.is_dir() {
-                        found_caches.push(cache_path);
-                    }
-                }
-
-                // Only return if we found at least one cache directory
-                if !found_caches.is_empty() {
-                    let project_name = path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-
-                    return Some(DetectedProject {
-                        name: project_name,
-                        path: path.to_path_buf(),
-                        project_type: pattern.name.clone(),
-                        cache_dirs: found_caches,
-                    });
-                }
-            }
-        }
-
-        None
     }
 }

@@ -92,7 +92,9 @@ pub fn create_row_with_selection(
     let style = if is_highlighted {
         Style::default().bg(Color::Blue).fg(Color::White)
     } else if is_selected {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default()
     };

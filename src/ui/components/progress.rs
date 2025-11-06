@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Gauge, Paragraph},
-    Frame,
 };
 
 use super::PopupConfig;
@@ -67,10 +67,7 @@ impl ProgressPopup {
             Line::raw(""),
             Line::from(vec![
                 Span::raw("Current: "),
-                Span::styled(
-                    &self.current_item,
-                    Style::default().fg(Color::Yellow),
-                ),
+                Span::styled(&self.current_item, Style::default().fg(Color::Yellow)),
             ]),
             Line::raw(""),
         ];

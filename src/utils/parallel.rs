@@ -2,8 +2,8 @@ use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Parallel directory size calculation
 pub fn calculate_sizes_parallel(paths: &[String]) -> Vec<(String, u64)> {
@@ -45,7 +45,7 @@ pub fn clean_caches_parallel(cache_dirs: &[String]) -> Result<u64> {
         .par_iter()
         .map(|cache_dir| {
             let size_before = crate::utils::get_dir_size(cache_dir);
-            
+
             match crate::utils::clean_dir(cache_dir) {
                 Ok(_) => {
                     let freed = size_before; // Assume all was freed
@@ -93,7 +93,7 @@ pub fn scan_directories_parallel(
         .par_iter()
         .flat_map(|dir| {
             let mut results = Vec::new();
-            
+
             if let Ok(walker) = walkdir::WalkDir::new(dir)
                 .max_depth(max_depth)
                 .follow_links(false)
@@ -109,7 +109,7 @@ pub fn scan_directories_parallel(
                     }
                 }
             }
-            
+
             progress.inc(1);
             results
         })
@@ -191,6 +191,6 @@ pub fn configure_thread_pool(parallelism: usize) -> Result<()> {
         .num_threads(parallelism)
         .build_global()
         .map_err(|e| anyhow::anyhow!("Failed to configure thread pool: {}", e))?;
-    
+
     Ok(())
 }

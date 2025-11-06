@@ -2,8 +2,8 @@ use crate::core::{DetectedProject, ScanConfig, Scanner};
 use crate::db;
 use crate::ui::{
     components::{TableConfig, create_scan_help},
-    views::{ListAction, ListView},
     init_terminal, poll_event, restore_terminal,
+    views::{ListAction, ListView},
 };
 use crate::utils::logger::{info, success, task};
 use anyhow::Result;
@@ -14,20 +14,20 @@ use std::path::PathBuf;
 pub fn run() -> Result<()> {
     task("Loading configuration...");
     let app_config = crate::config::Config::load()?;
-    
+
     // Configure thread pool for parallel operations
     crate::utils::parallel::configure_thread_pool(app_config.scan.parallelism)?;
-    
+
     task("Loading scan patterns...");
     let mut scan_config = ScanConfig::load()?;
-    
+
     // Merge skip directories from app config
     for skip_dir in &app_config.scan.skip_directories {
         if !scan_config.skip_dirs.contains(skip_dir) {
             scan_config.skip_dirs.push(skip_dir.clone());
         }
     }
-    
+
     info(&format!(
         "Loaded {} project patterns",
         scan_config.patterns.len()
@@ -82,17 +82,21 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
             let size = f.size();
             let chunks = ratatui::layout::Layout::default()
                 .direction(ratatui::layout::Direction::Horizontal)
-                .constraints([ratatui::layout::Constraint::Percentage(70), ratatui::layout::Constraint::Percentage(30)])
+                .constraints([
+                    ratatui::layout::Constraint::Percentage(70),
+                    ratatui::layout::Constraint::Percentage(30),
+                ])
                 .split(size);
 
             // Render table
-            let rows = list_view.items
+            let rows = list_view
+                .items
                 .iter()
                 .enumerate()
                 .map(|(i, project)| {
                     let is_selected = list_view.state.is_selected(i);
                     let marker = if is_selected { "✓" } else { " " };
-                    
+
                     crate::ui::components::create_row_with_selection(
                         vec![
                             marker.to_string(),
@@ -145,9 +149,14 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
                     if list_view.state.selected_items.is_empty() {
                         list_view.state.set_status("⚠ No projects selected");
                     } else {
-                        match add_selected_projects(&list_view.items, &list_view.state.selected_items) {
+                        match add_selected_projects(
+                            &list_view.items,
+                            &list_view.state.selected_items,
+                        ) {
                             Ok(_) => break,
-                            Err(e) => list_view.state.set_status(format!("Error adding projects: {}", e)),
+                            Err(e) => list_view
+                                .state
+                                .set_status(format!("Error adding projects: {}", e)),
                         }
                     }
                 }
@@ -163,7 +172,10 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
     Ok(())
 }
 
-fn add_selected_projects(detected_projects: &[DetectedProject], selected_items: &[usize]) -> Result<()> {
+fn add_selected_projects(
+    detected_projects: &[DetectedProject],
+    selected_items: &[usize],
+) -> Result<()> {
     let conn = db::connect()?;
     let mut added_count = 0;
 
@@ -180,7 +192,7 @@ fn add_selected_projects(detected_projects: &[DetectedProject], selected_items: 
 
             // Add project to database
             let project_id = db::add_project(&conn, &project.name, project.path.to_str().unwrap())?;
-            
+
             // Add cache directories
             for cache_path in cache_paths {
                 db::add_cache_directory(&conn, project_id, &cache_path)?;

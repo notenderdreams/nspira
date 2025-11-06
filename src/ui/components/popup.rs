@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
-    Frame,
 };
 
 /// Configuration for popup widgets
@@ -117,12 +117,10 @@ pub fn confirmation_popup(
         lines.push(Line::raw(""));
     }
 
-    lines.extend(vec![
-        Line::styled(
-            "This action cannot be undone.",
-            Style::default().fg(Color::Gray),
-        ),
-    ]);
+    lines.extend(vec![Line::styled(
+        "This action cannot be undone.",
+        Style::default().fg(Color::Gray),
+    )]);
 
     PopupWidget::new(config).content(lines)
 }

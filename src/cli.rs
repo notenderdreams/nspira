@@ -96,7 +96,7 @@ impl Cli {
             Commands::Scan => crate::commands::scan::run()?,
             Commands::Config { action } => {
                 use crate::config::Config;
-                
+
                 match action {
                     ConfigAction::Show => {
                         let config = Config::load()?;

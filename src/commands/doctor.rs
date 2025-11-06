@@ -1,8 +1,8 @@
 use crate::db;
 use crate::ui::{
     components::{TableConfig, create_doctor_help},
-    views::{ListAction, ListView},
     init_terminal, poll_event, restore_terminal,
+    views::{ListAction, ListView},
 };
 use crate::utils::logger::{info, task};
 use anyhow::Result;
@@ -13,6 +13,7 @@ use std::path::Path;
 pub struct ProjectHealth {
     pub project_id: i32,
     pub project_name: String,
+    #[allow(dead_code)]
     pub project_path: String,
     pub path_exists: bool,
     pub cache_dirs_exist: Vec<(String, bool)>,
@@ -24,7 +25,7 @@ pub fn run() -> Result<()> {
 
     let conn = db::connect()?;
     let projects = db::get_all_projects(&conn)?;
-    
+
     if projects.is_empty() {
         info("No projects found in database.");
         return Ok(());
@@ -50,7 +51,9 @@ pub fn run() -> Result<()> {
         // Check if project path exists
         health.path_exists = Path::new(&project.path).exists();
         if !health.path_exists {
-            health.issues.push(format!("Project path does not exist: {}", project.path));
+            health
+                .issues
+                .push(format!("Project path does not exist: {}", project.path));
         }
 
         // Check each cache directory
@@ -58,7 +61,9 @@ pub fn run() -> Result<()> {
             let exists = Path::new(cache_dir).exists();
             health.cache_dirs_exist.push((cache_dir.clone(), exists));
             if !exists {
-                health.issues.push(format!("Cache directory does not exist: {}", cache_dir));
+                health
+                    .issues
+                    .push(format!("Cache directory does not exist: {}", cache_dir));
             }
         }
 
@@ -102,22 +107,30 @@ fn run_doctor_tui(
             let size = f.size();
             let chunks = ratatui::layout::Layout::default()
                 .direction(ratatui::layout::Direction::Horizontal)
-                .constraints([ratatui::layout::Constraint::Percentage(70), ratatui::layout::Constraint::Percentage(30)])
+                .constraints([
+                    ratatui::layout::Constraint::Percentage(70),
+                    ratatui::layout::Constraint::Percentage(30),
+                ])
                 .split(size);
 
             // Render table
-            let rows = list_view.items
+            let rows = list_view
+                .items
                 .iter()
                 .enumerate()
                 .map(|(i, health)| {
                     let is_selected = list_view.state.is_selected(i);
-                    
+
                     // Path status
                     let path_status = if health.path_exists { "OK" } else { "MISSING" };
 
                     // Cache status
                     let total_caches = health.cache_dirs_exist.len();
-                    let healthy_caches = health.cache_dirs_exist.iter().filter(|(_, exists)| *exists).count();
+                    let healthy_caches = health
+                        .cache_dirs_exist
+                        .iter()
+                        .filter(|(_, exists)| *exists)
+                        .count();
                     let cache_status = if total_caches == 0 {
                         "None".to_string()
                     } else if healthy_caches == total_caches {
@@ -187,11 +200,12 @@ fn run_doctor_tui(
                 ListAction::Quit => break,
                 ListAction::ConfirmAction => {
                     // Remove selected projects
-                    let projects_to_remove: Vec<usize> = if list_view.state.selected_items.is_empty() {
-                        vec![list_view.state.selected]
-                    } else {
-                        list_view.state.selected_items.clone()
-                    };
+                    let projects_to_remove: Vec<usize> =
+                        if list_view.state.selected_items.is_empty() {
+                            vec![list_view.state.selected]
+                        } else {
+                            list_view.state.selected_items.clone()
+                        };
 
                     let mut removed_count = 0;
                     let mut sorted_indexes = projects_to_remove.clone();
@@ -209,13 +223,20 @@ fn run_doctor_tui(
 
                     if removed_count > 0 {
                         // Recalculate stats
-                        healthy_count = project_healths.iter().filter(|p| p.issues.is_empty()).count();
+                        healthy_count = project_healths
+                            .iter()
+                            .filter(|p| p.issues.is_empty())
+                            .count();
                         total_issues = project_healths.iter().map(|p| p.issues.len()).sum();
 
-                        list_view.state.set_status(format!("✓ Removed {} project(s)", removed_count));
+                        list_view
+                            .state
+                            .set_status(format!("✓ Removed {} project(s)", removed_count));
                         list_view.items = project_healths.clone();
-                        
-                        if list_view.state.selected >= project_healths.len() && list_view.state.selected > 0 {
+
+                        if list_view.state.selected >= project_healths.len()
+                            && list_view.state.selected > 0
+                        {
                             list_view.state.selected = project_healths.len() - 1;
                         }
                         list_view.state.selected_items.clear();
@@ -226,7 +247,9 @@ fn run_doctor_tui(
                     }
                 }
                 ListAction::ExecuteAction => {
-                    list_view.state.set_status("Use 'd' to remove problematic projects");
+                    list_view
+                        .state
+                        .set_status("Use 'd' to remove problematic projects");
                 }
                 ListAction::None => {}
             }

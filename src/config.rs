@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub scan: ScanConfig,
@@ -16,11 +16,11 @@ pub struct ScanConfig {
     /// Maximum depth for filesystem scanning
     #[serde(default = "default_scan_depth")]
     pub max_depth: usize,
-    
+
     /// Directories to skip during scanning
     #[serde(default = "default_skip_dirs")]
     pub skip_directories: Vec<String>,
-    
+
     /// Number of parallel threads for scanning
     #[serde(default = "default_parallelism")]
     pub parallelism: usize,
@@ -31,7 +31,7 @@ pub struct CleanConfig {
     /// Ask for confirmation before cleaning
     #[serde(default = "default_true")]
     pub confirm_before_clean: bool,
-    
+
     /// Track cleaning history in database
     #[serde(default = "default_true")]
     pub enable_history: bool,
@@ -81,15 +81,6 @@ impl Default for CleanConfig {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            scan: ScanConfig::default(),
-            clean: CleanConfig::default(),
-        }
-    }
-}
-
 impl Config {
     /// Get the configuration file path
     pub fn path() -> Result<PathBuf> {
@@ -105,7 +96,7 @@ impl Config {
     /// Load configuration from file, creating default if it doesn't exist
     pub fn load() -> Result<Self> {
         let config_path = Self::path()?;
-        
+
         if !config_path.exists() {
             let config = Self::default();
             config.save()?;

@@ -1,11 +1,13 @@
 use crate::ui::{
-    components::{confirmation_popup, create_list_help, create_row_with_selection, TableConfig, TableWidget},
+    components::{
+        TableConfig, TableWidget, confirmation_popup, create_list_help, create_row_with_selection,
+    },
     state::AppState,
 };
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout},
     widgets::TableState,
-    Frame,
 };
 
 /// Generic list view that can be used for different data types
@@ -49,7 +51,9 @@ impl<T> ListView<T> {
             .collect();
 
         // Render table
-        let table = TableWidget::new(self.table_config.clone()).rows(rows).build();
+        let table = TableWidget::new(self.table_config.clone())
+            .rows(rows)
+            .build();
 
         let mut table_state = TableState::default().with_selected(Some(self.state.selected));
         f.render_stateful_widget(table, chunks[0], &mut table_state);
@@ -82,7 +86,10 @@ impl<T> ListView<T> {
 
         if self.show_confirmation {
             match key {
-                KeyCode::Char('y') | KeyCode::Char('d') | KeyCode::Char('Y') | KeyCode::Char('D') => {
+                KeyCode::Char('y')
+                | KeyCode::Char('d')
+                | KeyCode::Char('Y')
+                | KeyCode::Char('D') => {
                     self.show_confirmation = false;
                     return ListAction::ConfirmAction;
                 }

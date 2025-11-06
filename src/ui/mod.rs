@@ -10,9 +10,9 @@ use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
 
 /// Initialize terminal for TUI
@@ -35,10 +35,10 @@ pub fn restore_terminal(mut terminal: Terminal<CrosstermBackend<io::Stdout>>) ->
 
 /// Poll for keyboard events
 pub fn poll_event() -> Result<Option<KeyCode>> {
-    if event::poll(std::time::Duration::from_millis(100))? {
-        if let Event::Key(key) = event::read()? {
-            return Ok(Some(key.code));
-        }
+    if event::poll(std::time::Duration::from_millis(100))?
+        && let Event::Key(key) = event::read()?
+    {
+        return Ok(Some(key.code));
     }
     Ok(None)
 }

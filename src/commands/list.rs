@@ -1,8 +1,8 @@
 use crate::db;
 use crate::ui::{
     components::{ProgressPopup, TableConfig, create_project_list_help},
-    views::{ListAction, ListView},
     init_terminal, poll_event, restore_terminal,
+    views::{ListAction, ListView},
 };
 use crate::utils::{get_dir_size, human_readable_size};
 use anyhow::Result;
@@ -12,7 +12,7 @@ use ratatui::layout::Constraint;
 pub fn run() -> Result<()> {
     let conn = db::connect()?;
     let mut projects = db::get_all_projects(&conn)?;
-    
+
     if projects.is_empty() {
         println!("No projects found.");
         return Ok(());
@@ -41,18 +41,23 @@ pub fn run() -> Result<()> {
                 let size = f.size();
                 let chunks = ratatui::layout::Layout::default()
                     .direction(ratatui::layout::Direction::Horizontal)
-                    .constraints([ratatui::layout::Constraint::Percentage(70), ratatui::layout::Constraint::Percentage(30)])
+                    .constraints([
+                        ratatui::layout::Constraint::Percentage(70),
+                        ratatui::layout::Constraint::Percentage(30),
+                    ])
                     .split(size);
 
                 // Render table
-                let rows = list_view.items
+                let rows = list_view
+                    .items
                     .iter()
                     .enumerate()
                     .map(|(i, project)| {
                         let is_selected = list_view.state.is_selected(i);
                         let marker = if is_selected { "✓" } else { " " };
-                        let total_size: u64 = project.cache_dirs.iter().map(|cd| get_dir_size(cd)).sum();
-                        
+                        let total_size: u64 =
+                            project.cache_dirs.iter().map(|cd| get_dir_size(cd)).sum();
+
                         crate::ui::components::create_row_with_selection(
                             vec![
                                 format!("{} {}", marker, project.id),
@@ -113,16 +118,17 @@ pub fn run() -> Result<()> {
                 ListAction::ExecuteAction => {
                     let selected_indexes: Vec<usize> = list_view.state.selected_items.clone();
                     if !selected_indexes.is_empty() {
-                        progress_popup = Some(ProgressPopup::new("Cleaning Cache", selected_indexes.len()));
-                        
+                        progress_popup =
+                            Some(ProgressPopup::new("Cleaning Cache", selected_indexes.len()));
+
                         let mut total_freed = 0u64;
                         for (current_index, &i) in selected_indexes.iter().enumerate() {
                             let proj = &projects[i];
-                            
+
                             if let Some(ref mut progress) = progress_popup {
                                 progress.update(&proj.name, current_index + 1);
                             }
-                            
+
                             // Force UI update
                             terminal.draw(|f| {
                                 if let Some(ref progress) = progress_popup {
@@ -152,11 +158,12 @@ pub fn run() -> Result<()> {
                     }
                 }
                 ListAction::ConfirmAction => {
-                    let projects_to_delete: Vec<usize> = if list_view.state.selected_items.is_empty() {
-                        vec![list_view.state.selected]
-                    } else {
-                        list_view.state.selected_items.clone()
-                    };
+                    let projects_to_delete: Vec<usize> =
+                        if list_view.state.selected_items.is_empty() {
+                            vec![list_view.state.selected]
+                        } else {
+                            list_view.state.selected_items.clone()
+                        };
 
                     let mut removed_count = 0;
                     let mut sorted_indexes = projects_to_delete.clone();
@@ -173,10 +180,14 @@ pub fn run() -> Result<()> {
                     }
 
                     if removed_count > 0 {
-                        list_view.state.set_status(format!("✓ Removed {} project(s)", removed_count));
+                        list_view
+                            .state
+                            .set_status(format!("✓ Removed {} project(s)", removed_count));
                         list_view.items = projects.clone();
-                        
-                        if list_view.state.selected >= projects.len() && list_view.state.selected > 0 {
+
+                        if list_view.state.selected >= projects.len()
+                            && list_view.state.selected > 0
+                        {
                             list_view.state.selected = projects.len() - 1;
                         }
                         list_view.state.selected_items.clear();

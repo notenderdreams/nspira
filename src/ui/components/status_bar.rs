@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 /// Status bar widget for displaying help and status information
@@ -64,10 +64,8 @@ impl StatusBar {
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
             ));
-            self.lines.push(Line::styled(
-                message,
-                Style::default().fg(Color::White),
-            ));
+            self.lines
+                .push(Line::styled(message, Style::default().fg(Color::White)));
         }
         self
     }
