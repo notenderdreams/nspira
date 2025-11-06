@@ -15,6 +15,9 @@ pub fn run() -> Result<()> {
     task("Loading configuration...");
     let app_config = crate::config::Config::load()?;
     
+    // Configure thread pool for parallel operations
+    crate::utils::parallel::configure_thread_pool(app_config.scan.parallelism)?;
+    
     task("Loading scan patterns...");
     let mut scan_config = ScanConfig::load()?;
     

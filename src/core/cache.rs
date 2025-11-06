@@ -17,14 +17,27 @@ impl CacheManager {
 
     /// Clean multiple cache directories and return total size freed
     pub fn clean_multiple(paths: &[String]) -> Result<u64> {
-        let mut total_freed = 0u64;
-
-        for path in paths {
+        if paths.len() > 1 {
+            // Use parallel cleaning for multiple directories
+            crate::utils::parallel::clean_caches_parallel(paths)
+        } else if let Some(path) = paths.first() {
+            // Single directory - use regular cleaning
             let size = Self::get_size(path);
             Self::clean(path)?;
-            total_freed += size;
+            Ok(size)
+        } else {
+            Ok(0)
         }
+    }
 
-        Ok(total_freed)
+    /// Calculate sizes for multiple directories in parallel
+    pub fn get_sizes_parallel(paths: &[String]) -> Vec<(String, u64)> {
+        if paths.len() > 1 {
+            crate::utils::parallel::calculate_sizes_parallel(paths)
+        } else if let Some(path) = paths.first() {
+            vec![(path.clone(), Self::get_size(path))]
+        } else {
+            Vec::new()
+        }
     }
 }

@@ -20,6 +20,10 @@ pub struct ScanConfig {
     /// Directories to skip during scanning
     #[serde(default = "default_skip_dirs")]
     pub skip_directories: Vec<String>,
+    
+    /// Number of parallel threads for scanning
+    #[serde(default = "default_parallelism")]
+    pub parallelism: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,11 +56,18 @@ fn default_skip_dirs() -> Vec<String> {
     ]
 }
 
+fn default_parallelism() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+}
+
 impl Default for ScanConfig {
     fn default() -> Self {
         Self {
             max_depth: default_scan_depth(),
             skip_directories: default_skip_dirs(),
+            parallelism: default_parallelism(),
         }
     }
 }

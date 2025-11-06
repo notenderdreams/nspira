@@ -57,9 +57,11 @@ impl Scanner {
     }
 
     pub fn scan(&self, start_path: &Path, max_depth: usize) -> Result<Vec<DetectedProject>> {
-        let mut detected = Vec::new();
+        println!("🚀 Starting parallel scan...");
+        
+        // First, collect all directories to scan
+        let mut all_dirs = Vec::new();
         let skip_set: HashSet<String> = self.config.skip_dirs.iter().cloned().collect();
-        let mut scanned_count = 0;
 
         let walker = WalkDir::new(start_path)
             .max_depth(max_depth)
@@ -71,34 +73,22 @@ impl Scanner {
             });
 
         for entry in walker.filter_map(|e| e.ok()) {
-            if !entry.file_type().is_dir() {
-                continue;
-            }
-
-            scanned_count += 1;
-            if scanned_count % 100 == 0 {
-                print!("\rScanning... {} directories checked", scanned_count);
-                use std::io::{self, Write};
-                io::stdout().flush()?;
-            }
-
-            let path = entry.path();
-
-            // Skip if already tracked
-            if self.tracked_paths.contains(path) {
-                continue;
-            }
-
-            // Check if this directory matches any pattern
-            if let Some(project) = self.detect_project(path) {
-                detected.push(project);
+            if entry.file_type().is_dir() {
+                let path = entry.path();
+                
+                // Skip if already tracked
+                if !self.tracked_paths.contains(path) {
+                    all_dirs.push(path.to_path_buf());
+                }
             }
         }
 
-        if scanned_count > 0 {
-            println!("\rScanned {} directories", scanned_count);
-        }
+        println!("📁 Found {} directories to scan", all_dirs.len());
 
+        // Use parallel project detection
+        let detected = crate::utils::parallel::detect_projects_parallel(&all_dirs, &self.config.patterns);
+
+        println!("✅ Detected {} projects", detected.len());
         Ok(detected)
     }
 

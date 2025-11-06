@@ -4,7 +4,7 @@ use crate::ui::{
     views::{ListAction, ListView},
     init_terminal, poll_event, restore_terminal,
 };
-use crate::utils::{clean_dir, get_dir_size, human_readable_size};
+use crate::utils::{get_dir_size, human_readable_size};
 use anyhow::Result;
 use chrono::Utc;
 use ratatui::layout::Constraint;
@@ -130,12 +130,10 @@ pub fn run() -> Result<()> {
                                 }
                             })?;
 
-                            // Clean cache directories
-                            for cache_dir in &proj.cache_dirs {
-                                let size = get_dir_size(cache_dir);
-                                clean_dir(cache_dir)?;
-                                total_freed += size;
-                            }
+                            // Clean cache directories in parallel
+                            let cache_dirs: Vec<String> = proj.cache_dirs.clone();
+                            let freed = crate::core::CacheManager::clean_multiple(&cache_dirs)?;
+                            total_freed += freed;
 
                             db::update_project_last_cleaned(&conn, proj.id)?;
                             // Update the project in our local copy
