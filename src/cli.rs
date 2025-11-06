@@ -54,6 +54,21 @@ pub enum Commands {
     Flush,
     /// Scan for cache directories
     Scan,
+    /// Manage configuration
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfigAction {
+    /// Show current configuration
+    Show,
+    /// Get configuration file path
+    Path,
+    /// Reset configuration to defaults
+    Reset,
 }
 
 impl Cli {
@@ -79,6 +94,25 @@ impl Cli {
             Commands::Doctor => crate::commands::doctor::run()?,
             Commands::Flush => crate::commands::flush::run()?,
             Commands::Scan => crate::commands::scan::run()?,
+            Commands::Config { action } => {
+                use crate::config::Config;
+                
+                match action {
+                    ConfigAction::Show => {
+                        let config = Config::load()?;
+                        let toml_str = toml::to_string_pretty(&config)?;
+                        println!("{}", toml_str);
+                    }
+                    ConfigAction::Path => {
+                        let path = Config::path()?;
+                        println!("{}", path.display());
+                    }
+                    ConfigAction::Reset => {
+                        Config::reset()?;
+                        println!("✓ Configuration reset to defaults");
+                    }
+                }
+            }
         }
 
         Ok(())

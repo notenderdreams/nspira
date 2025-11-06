@@ -281,21 +281,33 @@ fn run_scan_tui(detected_projects: Vec<DetectedProject>) -> Result<()> {
 // Moved to core::scanner module
 
 pub fn run() -> Result<()> {
+    task("Loading configuration...");
+    let app_config = crate::config::Config::load()?;
+    
     task("Loading scan patterns...");
-    let config = ScanConfig::load()?;
+    let mut scan_config = ScanConfig::load()?;
+    
+    // Merge skip directories from app config
+    for skip_dir in &app_config.scan.skip_directories {
+        if !scan_config.skip_dirs.contains(skip_dir) {
+            scan_config.skip_dirs.push(skip_dir.clone());
+        }
+    }
+    
     info(&format!(
         "Loaded {} project patterns",
-        config.patterns.len()
+        scan_config.patterns.len()
     ));
 
     task("Starting filesystem scan...");
     let start_path = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     info(&format!("Scanning from: {}", start_path.display()));
+    info(&format!("Max depth: {}", app_config.scan.max_depth));
     println!();
 
     let tracked_paths = get_tracked_paths()?;
-    let scanner = Scanner::new(config, tracked_paths);
-    let detected = scanner.scan(&start_path, 4)?;
+    let scanner = Scanner::new(scan_config, tracked_paths);
+    let detected = scanner.scan(&start_path, app_config.scan.max_depth)?;
 
     // Run TUI for project selection
     run_scan_tui(detected)?;

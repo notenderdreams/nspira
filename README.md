@@ -139,6 +139,17 @@ nspira remove 1
 
 Delete the entire database (use with caution!).
 
+### `nspira config`
+
+Manage nspira configuration.
+
+**Subcommands:**
+```bash
+nspira config show    # Display current configuration
+nspira config path    # Show configuration file location
+nspira config reset   # Reset configuration to defaults
+```
+
 ---
 
 ## Interactive TUI Guide
@@ -187,7 +198,61 @@ Delete the entire database (use with caution!).
 
 ## ⚙️ Configuration
 
-Path : `~/.config/nspira/patterns.json`:
+### Configuration File
+
+Nspira uses a TOML configuration file that is automatically created on first run.
+
+**Location:**
+- **macOS**: `~/Library/Application Support/nspira/config.toml`
+- **Linux**: `~/.config/nspira/config.toml`
+- **Windows**: `%APPDATA%\nspira\config.toml`
+
+**Commands:**
+```bash
+nspira config show    # View current configuration
+nspira config path    # Get config file location
+nspira config reset   # Reset to defaults
+```
+
+### Configuration Options
+
+```toml
+[scan]
+# Maximum depth for filesystem scanning
+max_depth = 4
+
+# Directories to skip during scanning
+skip_directories = [
+    "Library",
+    "System",
+    "Applications",
+    ".Trash",
+    "node_modules",
+]
+
+[clean]
+# Ask for confirmation before cleaning
+confirm_before_clean = true
+
+# Track cleaning history in database
+enable_history = true
+```
+
+### Customizing Configuration
+
+Edit the config file directly:
+
+```bash
+# Get config path
+nspira config path
+
+# Edit with your editor
+vim "$(nspira config path)"
+```
+
+### Custom Project Patterns
+
+For custom project detection, edit `~/.config/nspira/patterns.json`:
 
 ```json
 {
@@ -195,18 +260,10 @@ Path : `~/.config/nspira/patterns.json`:
     {
       "name": "My Framework",
       "identifier": "myframework.json",
-      "cache_dirs": [
-        "cache",
-        "temp",
-        "build"
-      ]
+      "cache_dirs": ["cache", "temp", "build"]
     }
   ],
-  "skip_dirs": [
-    ".git",
-    ".svn",
-    "node_modules"
-  ]
+  "skip_dirs": [".git", ".svn"]
 }
 ```
 
