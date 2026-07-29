@@ -1,177 +1,130 @@
+use crate::ui::state::StatusType;
+use crate::ui::theme::Theme;
 use ratatui::{
     Frame,
-    layout::Rect,
-    style::{Color, Modifier, Style},
+    layout::{Alignment, Rect},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
 
-/// Status bar widget for displaying help and status information
-pub struct StatusBar {
-    title: String,
-    lines: Vec<Line<'static>>,
+pub struct KeyHint {
+    pub key: String,
+    pub desc: String,
 }
 
-impl StatusBar {
-    pub fn new(title: impl Into<String>) -> Self {
+impl KeyHint {
+    pub fn new(key: impl Into<String>, desc: impl Into<String>) -> Self {
         Self {
-            title: title.into(),
-            lines: Vec::new(),
+            key: key.into(),
+            desc: desc.into(),
+        }
+    }
+}
+
+pub struct StatusBarWidget<'a> {
+    hints: Vec<KeyHint>,
+    status_msg: &'a str,
+    status_type: &'a StatusType,
+}
+
+impl<'a> StatusBarWidget<'a> {
+    pub fn new(status_msg: &'a str, status_type: &'a StatusType) -> Self {
+        Self {
+            hints: Vec::new(),
+            status_msg,
+            status_type,
         }
     }
 
-    pub fn add_line(mut self, line: Line<'static>) -> Self {
-        self.lines.push(line);
-        self
-    }
-
-    pub fn add_control(mut self, key: impl Into<String>, description: impl Into<String>) -> Self {
-        self.lines.push(Line::from(vec![
-            Span::styled(key.into(), Style::default().fg(Color::Yellow)),
-            Span::raw(" - "),
-            Span::raw(description.into()),
-        ]));
-        self
-    }
-
-    pub fn add_section_title(mut self, title: impl Into<String>) -> Self {
-        self.lines.push(Line::raw(""));
-        self.lines.push(Line::styled(
-            title.into(),
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ));
-        self
-    }
-
-    pub fn add_info(mut self, label: impl Into<String>, value: impl Into<String>) -> Self {
-        self.lines.push(Line::from(vec![
-            Span::raw(label.into()),
-            Span::raw(": "),
-            Span::styled(value.into(), Style::default().fg(Color::Green)),
-        ]));
-        self
-    }
-
-    pub fn add_status(mut self, message: impl Into<String>) -> Self {
-        let message = message.into();
-        if !message.is_empty() {
-            self.lines.push(Line::raw(""));
-            self.lines.push(Line::styled(
-                "Status",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ));
-            self.lines
-                .push(Line::styled(message, Style::default().fg(Color::White)));
-        }
+    pub fn hint(mut self, key: impl Into<String>, desc: impl Into<String>) -> Self {
+        self.hints.push(KeyHint::new(key, desc));
         self
     }
 
     pub fn render(self, f: &mut Frame, area: Rect) {
-        let help_block = Paragraph::new(self.lines)
-            .block(Block::default().borders(Borders::ALL).title(self.title));
-        f.render_widget(help_block, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(Theme::BORDER_TYPE)
+            .border_style(Style::default().fg(Theme::BORDER));
+
+        let mut line_spans = Vec::new();
+
+        if !self.status_msg.is_empty() {
+            let (prefix, color) = match self.status_type {
+                StatusType::Success => ("✓ ", Theme::SUCCESS),
+                StatusType::Error => ("✖ ", Theme::DANGER),
+                StatusType::Warning => ("⚠ ", Theme::WARNING),
+                StatusType::Info => ("ℹ ", Theme::INFO),
+            };
+
+            line_spans.push(Span::styled(
+                format!(" {} ", prefix),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ));
+            line_spans.push(Span::styled(
+                format!("{} ", self.status_msg),
+                Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD),
+            ));
+            line_spans.push(Span::raw(" │ "));
+        }
+
+        for (i, hint) in self.hints.iter().enumerate() {
+            if i > 0 {
+                line_spans.push(Span::raw("  "));
+            }
+            line_spans.push(Span::styled(
+                format!("[{}]", hint.key),
+                Theme::help_key_style(),
+            ));
+            line_spans.push(Span::raw(" "));
+            line_spans.push(Span::styled(
+                &hint.desc,
+                Theme::help_desc_style(),
+            ));
+        }
+
+        let paragraph = Paragraph::new(Line::from(line_spans))
+            .block(block)
+            .alignment(Alignment::Left);
+
+        f.render_widget(paragraph, area);
     }
 }
 
-/// Create a standard help panel for list-like interfaces
-pub fn create_list_help(
-    selected_count: usize,
-    total_count: usize,
-    status_message: &str,
-) -> StatusBar {
-    let mut status_bar = StatusBar::new("Info")
-        .add_section_title("Statistics")
-        .add_info("Total", total_count.to_string())
-        .add_info("Selected", selected_count.to_string())
-        .add_section_title("Controls")
-        .add_control("↑/↓ or j/k", "Navigate")
-        .add_control("Space", "Toggle select")
-        .add_control("a", "Select/Unselect all")
-        .add_control("Enter", "Execute action")
-        .add_control("d", "Delete selected")
-        .add_control("q", "Quit");
-
-    if !status_message.is_empty() {
-        status_bar = status_bar.add_status(status_message);
-    }
-
-    status_bar
+/// Helper for generating hotkey bar for project manager
+pub fn create_project_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
+    StatusBarWidget::new(status, status_type)
+        .hint("↑/↓", "Nav")
+        .hint("Space", "Select")
+        .hint("a", "All")
+        .hint("c/Enter", "Clean")
+        .hint("d", "Delete")
+        .hint("/", "Filter")
+        .hint("s", "Sort")
+        .hint("i", "Details")
+        .hint("?", "Help")
+        .hint("q", "Quit")
 }
 
-/// Create help panel for project list (cleaning context)
-pub fn create_project_list_help(
-    selected_count: usize,
-    total_count: usize,
-    status_message: &str,
-) -> StatusBar {
-    let mut status_bar = StatusBar::new("Info")
-        .add_section_title("Statistics")
-        .add_info("Projects", total_count.to_string())
-        .add_info("Selected", selected_count.to_string())
-        .add_section_title("Controls")
-        .add_control("↑/↓ or j/k", "Navigate")
-        .add_control("Space", "Toggle select")
-        .add_control("a", "Select/Unselect all")
-        .add_control("Enter", "Clean selected")
-        .add_control("d", "Remove from tracking")
-        .add_control("q", "Quit");
-
-    if !status_message.is_empty() {
-        status_bar = status_bar.add_status(status_message);
-    }
-
-    status_bar
+/// Helper for scan view hotkeys
+pub fn create_scan_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
+    StatusBarWidget::new(status, status_type)
+        .hint("↑/↓", "Nav")
+        .hint("Space", "Select")
+        .hint("a", "All")
+        .hint("Enter", "Add Tracked")
+        .hint("/", "Filter")
+        .hint("?", "Help")
+        .hint("q", "Quit")
 }
 
-/// Create help panel for scan results (adding context)
-pub fn create_scan_help(
-    selected_count: usize,
-    total_count: usize,
-    status_message: &str,
-) -> StatusBar {
-    let mut status_bar = StatusBar::new("Info")
-        .add_section_title("Statistics")
-        .add_info("Detected", total_count.to_string())
-        .add_info("Selected", selected_count.to_string())
-        .add_section_title("Controls")
-        .add_control("↑/↓ or j/k", "Navigate")
-        .add_control("Space", "Toggle select")
-        .add_control("a", "Select/Unselect all")
-        .add_control("Enter", "Add to tracking")
-        .add_control("q", "Quit without adding");
-
-    if !status_message.is_empty() {
-        status_bar = status_bar.add_status(status_message);
-    }
-
-    status_bar
-}
-
-/// Create help panel for doctor (health check context)
-pub fn create_doctor_help(
-    _selected_count: usize,
-    total_count: usize,
-    healthy_count: usize,
-    issues_count: usize,
-    status_message: &str,
-) -> StatusBar {
-    let mut status_bar = StatusBar::new("Health Report")
-        .add_section_title("Statistics")
-        .add_info("Total Projects", total_count.to_string())
-        .add_info("Healthy", healthy_count.to_string())
-        .add_info("Issues Found", issues_count.to_string())
-        .add_section_title("Controls")
-        .add_control("↑/↓ or j/k", "Navigate")
-        .add_control("d", "Remove broken project")
-        .add_control("q", "Quit");
-
-    if !status_message.is_empty() {
-        status_bar = status_bar.add_status(status_message);
-    }
-
-    status_bar
+/// Helper for doctor view hotkeys
+pub fn create_doctor_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
+    StatusBarWidget::new(status, status_type)
+        .hint("↑/↓", "Nav")
+        .hint("d", "Remove Broken")
+        .hint("f", "Filter Issues")
+        .hint("?", "Help")
+        .hint("q", "Quit")
 }

@@ -1,10 +1,11 @@
+use crate::ui::theme::Theme;
 use ratatui::{
-    layout::Constraint,
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
+    Frame,
+    layout::{Constraint, Rect},
+    style::Style,
+    widgets::{Block, Borders, Cell, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState},
 };
 
-/// Configuration for a table widget
 #[derive(Debug, Clone)]
 pub struct TableConfig {
     pub title: String,
@@ -19,7 +20,7 @@ impl TableConfig {
             title: title.into(),
             headers: Vec::new(),
             constraints: Vec::new(),
-            highlight_symbol: ">> ".to_string(),
+            highlight_symbol: "❯ ".to_string(),
         }
     }
 
@@ -39,69 +40,92 @@ impl TableConfig {
     }
 }
 
-/// Reusable table widget
-pub struct TableWidget {
+pub struct TableWidget<'a> {
     config: TableConfig,
-    rows: Vec<Row<'static>>,
+    rows: Vec<Row<'a>>,
+    total_items: usize,
 }
 
-impl TableWidget {
+impl<'a> TableWidget<'a> {
     pub fn new(config: TableConfig) -> Self {
         Self {
             config,
             rows: Vec::new(),
+            total_items: 0,
         }
     }
 
-    pub fn rows(mut self, rows: Vec<Row<'static>>) -> Self {
+    pub fn rows(mut self, rows: Vec<Row<'a>>) -> Self {
+        self.total_items = rows.len();
         self.rows = rows;
         self
     }
 
-    pub fn build(self) -> Table<'static> {
+    pub fn render(
+        self,
+        f: &mut Frame,
+        area: Rect,
+        state: &mut TableState,
+    ) {
         let header = Row::new(
             self.config
                 .headers
                 .iter()
-                .map(|h| Cell::from(h.clone()))
+                .map(|h| Cell::from(h.clone()).style(Theme::header_style()))
                 .collect::<Vec<_>>(),
         )
-        .style(Style::default().add_modifier(Modifier::BOLD))
+        .style(Style::default().bg(Theme::BG_HEADER))
+        .height(1)
         .bottom_margin(1);
 
-        let highlight_symbol = self.config.highlight_symbol.clone();
-
-        Table::new(self.rows, self.config.constraints)
+        let table = Table::new(self.rows, self.config.constraints)
             .header(header)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(self.config.title),
+                    .border_type(Theme::BORDER_TYPE)
+                    .border_style(Style::default().fg(Theme::BORDER))
+                    .title(format!(" {} ", self.config.title))
+                    .title_style(Theme::title_style()),
             )
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::White))
-            .highlight_symbol(highlight_symbol)
+            .highlight_style(Theme::selected_row_style())
+            .highlight_symbol(self.config.highlight_symbol.clone());
+
+        f.render_stateful_widget(table, area, state);
+
+        // Render scrollbar if total items exceed visible viewport
+        if self.total_items > 0 {
+            let mut scrollbar_state = ScrollbarState::new(self.total_items)
+                .position(state.selected().unwrap_or(0));
+            f.render_stateful_widget(
+                Scrollbar::default()
+                    .orientation(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("▲"))
+                    .end_symbol(Some("▼")),
+                area,
+                &mut scrollbar_state,
+            );
+        }
     }
 }
 
-/// Helper to create a row with selection styling
-pub fn create_row_with_selection(
+/// Utility for building formatted table rows
+pub fn build_table_row<'a>(
     cells: Vec<String>,
-    is_selected: bool,
-    is_highlighted: bool,
-) -> Row<'static> {
-    let style = if is_highlighted {
-        Style::default().bg(Color::Blue).fg(Color::White)
-    } else if is_selected {
-        Style::default()
-            .fg(Color::Green)
-            .add_modifier(Modifier::BOLD)
+    is_checked: bool,
+    is_cursor: bool,
+) -> Row<'a> {
+    let base_style = if is_cursor {
+        Theme::selected_row_style()
+    } else if is_checked {
+        Theme::checked_row_style()
     } else {
-        Style::default()
+        Style::default().fg(Theme::TEXT)
     };
 
     let cells: Vec<Cell> = cells
         .into_iter()
-        .map(|cell| Cell::from(cell).style(style))
+        .map(|content| Cell::from(content).style(base_style))
         .collect();
 
     Row::new(cells)
