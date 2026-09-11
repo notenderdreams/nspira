@@ -19,6 +19,7 @@ walkdir = "2.5.0"
 toml = "0.8"
 rayon = "1.8"
 indicatif = "0.17"
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
 
 [profile.dev]
 opt-level = 0

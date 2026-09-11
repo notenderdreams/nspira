@@ -53,6 +53,12 @@ fn default_skip_dirs() -> Vec<String> {
         "Applications".to_string(),
         ".Trash".to_string(),
         "node_modules".to_string(),
+        "$Recycle.Bin".to_string(),
+        "$RECYCLE.BIN".to_string(),
+        "System Volume Information".to_string(),
+        "Windows".to_string(),
+        "Program Files".to_string(),
+        "Program Files (x86)".to_string(),
     ]
 }
 

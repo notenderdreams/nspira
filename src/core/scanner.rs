@@ -57,28 +57,52 @@ impl Scanner {
     }
 
     pub fn scan(&self, start_path: &Path, max_depth: usize) -> Result<Vec<DetectedProject>> {
+        self.scan_multiple(&[start_path.to_path_buf()], max_depth)
+    }
+
+    pub fn scan_multiple(&self, start_paths: &[PathBuf], max_depth: usize) -> Result<Vec<DetectedProject>> {
         println!("🚀 Starting parallel scan...");
 
         // First, collect all directories to scan
         let mut all_dirs = Vec::new();
-        let skip_set: HashSet<String> = self.config.skip_dirs.iter().cloned().collect();
+        let mut visited = HashSet::new();
 
-        let walker = WalkDir::new(start_path)
-            .max_depth(max_depth)
-            .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| {
-                let name = e.file_name().to_string_lossy();
-                !skip_set.contains(name.as_ref())
-            });
+        let skip_set: HashSet<String> = if cfg!(windows) {
+            self.config
+                .skip_dirs
+                .iter()
+                .map(|s| s.to_lowercase())
+                .collect()
+        } else {
+            self.config.skip_dirs.iter().cloned().collect()
+        };
 
-        for entry in walker.filter_map(|e| e.ok()) {
-            if entry.file_type().is_dir() {
-                let path = entry.path();
+        for start_path in start_paths {
+            if !start_path.exists() {
+                continue;
+            }
 
-                // Skip if already tracked
-                if !self.tracked_paths.contains(path) {
-                    all_dirs.push(path.to_path_buf());
+            let walker = WalkDir::new(start_path)
+                .max_depth(max_depth)
+                .follow_links(false)
+                .into_iter()
+                .filter_entry(|e| {
+                    let name = e.file_name().to_string_lossy();
+                    if cfg!(windows) {
+                        !skip_set.contains(&name.to_lowercase())
+                    } else {
+                        !skip_set.contains(name.as_ref())
+                    }
+                });
+
+            for entry in walker.filter_map(|e| e.ok()) {
+                if entry.file_type().is_dir() {
+                    let path = entry.path();
+
+                    // Skip if already tracked or already added
+                    if !self.tracked_paths.contains(path) && visited.insert(path.to_path_buf()) {
+                        all_dirs.push(path.to_path_buf());
+                    }
                 }
             }
         }

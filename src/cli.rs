@@ -53,7 +53,10 @@ pub enum Commands {
     /// Delete the entire database
     Flush,
     /// Scan for cache directories
-    Scan,
+    Scan {
+        /// Optional path to scan (defaults to standard OS locations)
+        path: Option<PathBuf>,
+    },
     /// Manage configuration
     Config {
         #[command(subcommand)]
@@ -93,7 +96,7 @@ impl Cli {
             Commands::Stats => crate::commands::stats::run()?,
             Commands::Doctor => crate::commands::doctor::run()?,
             Commands::Flush => crate::commands::flush::run()?,
-            Commands::Scan => crate::commands::scan::run()?,
+            Commands::Scan { path } => crate::commands::scan::run(path.clone())?,
             Commands::Config { action } => {
                 use crate::config::Config;
 

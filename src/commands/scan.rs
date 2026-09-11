@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-pub fn run() -> Result<()> {
+pub fn run(custom_path: Option<PathBuf>) -> Result<()> {
     task("Loading configuration...");
     let app_config = crate::config::Config::load()?;
 
@@ -28,14 +28,21 @@ pub fn run() -> Result<()> {
     ));
 
     task("Starting filesystem scan...");
-    let start_path = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    info(&format!("Scanning from: {}", start_path.display()));
+    let start_paths = if let Some(path) = custom_path {
+        vec![path]
+    } else {
+        crate::utils::fs::get_default_scan_paths()
+    };
+
+    for path in &start_paths {
+        info(&format!("Scanning from: {}", path.display()));
+    }
     info(&format!("Max depth: {}", app_config.scan.max_depth));
     println!();
 
     let tracked_paths = get_tracked_paths()?;
     let scanner = Scanner::new(scan_config, tracked_paths);
-    let detected = scanner.scan(&start_path, app_config.scan.max_depth)?;
+    let detected = scanner.scan_multiple(&start_paths, app_config.scan.max_depth)?;
 
     // Run interactive TUI view
     run_scan_view(detected)?;
