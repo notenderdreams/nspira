@@ -40,14 +40,20 @@ fn clean_project(conn: &rusqlite::Connection, pid: i32, totals: &mut Totals) -> 
     let project = crate::db::get_project_by_id(conn, pid)?
         .ok_or_else(|| anyhow!("No project found with id {}", pid))?;
 
-    task(&format!("{} (id {})", project.name, project.id));
+    let mut header_shown = false;
 
     for cd in project.cache_dirs {
         if !Path::new(&cd).exists() {
-            warn(&format!("skipped {} (not found)", cd));
             continue;
         }
         let size = get_dir_size(&cd);
+        if size == 0 {
+            continue;
+        }
+        if !header_shown {
+            task(&format!("{} (id {})", project.name, project.id));
+            header_shown = true;
+        }
         match crate::utils::clean_dir(&cd) {
             Ok(_) => {
                 success(&format!("cleaned {} ({})", cd, human_readable_size(size)));
