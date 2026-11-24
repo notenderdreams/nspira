@@ -1,449 +1,321 @@
-use crate::db::{self};
+use crate::core::{CleanTotals, clean_project};
+use crate::db;
 use crate::ui::{
-    TerminalGuard, TerminalEvent, poll_event,
+    TerminalEvent, TerminalGuard,
     components::{
-        HeaderWidget, ProgressPopup, StatsWidget, TableConfig, TableWidget,
-        build_table_row, confirmation_popup, create_project_hints, help_popup, project_detail_popup, search_input_popup,
+        HeaderWidget, ProgressPopup, StatsWidget, TREE_KEYS, TableConfig, TableWidget,
+        confirmation_popup, create_project_hints, help_popup, project_detail_popup,
+        search_input_popup,
     },
-    model::UiProjectItem,
-    state::{AppState, SortMode, StatusType, ViewTab},
+    model::{Entry, format_cleaned},
+    poll_event,
+    state::{SortMode, StatusType, ViewTab},
+    tree::{TreeList, path_width, tree_columns, tree_rows},
 };
-use crate::utils::human_readable_size;
+use crate::utils::{get_dir_size, human_readable_size, logger};
 use anyhow::Result;
-use chrono::Utc;
 use crossterm::event::KeyCode;
-use ratatui::{
-    layout::{Constraint, Direction, Layout},
-    widgets::TableState,
-};
+use ratatui::layout::{Constraint, Direction, Layout};
 use rusqlite::Connection;
+use std::collections::BTreeMap;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Action {
+    Clean,
+    Untrack,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Modal {
+    None,
+    Help,
+    Detail,
+    Confirm(Action),
+}
+
+const ACTION_KEYS: &[(&str, &str)] = &[
+    ("Enter", "Expand / collapse project"),
+    ("c", "Clean selected (or cursor) caches"),
+    ("d / Del", "Stop tracking project or cache dir"),
+    ("i", "Project details"),
+    ("s", "Cycle sort: name, size, cleaned, id"),
+    ("Tab / 1 / 2", "Projects / stats"),
+    ("q", "Quit"),
+];
+
+fn sorted_order(entries: &[Entry], sort: SortMode, query: &str) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..entries.len()).filter(|&i| entries[i].matches(query)).collect();
+    match sort {
+        SortMode::Name => order.sort_by_key(|&i| entries[i].name.to_lowercase()),
+        SortMode::Size => order.sort_by_key(|&i| std::cmp::Reverse(entries[i].total_size())),
+        SortMode::LastCleaned => {
+            order.sort_by(|&a, &b| entries[b].last_cleaned.cmp(&entries[a].last_cleaned))
+        }
+        SortMode::Id => order.sort_by_key(|&i| entries[i].id),
+    }
+    order
+}
 
 pub fn run_project_list_view(conn: &Connection) -> Result<()> {
     let projects = db::get_all_projects(conn)?;
-
     if projects.is_empty() {
-        println!("No tracked projects found. Use `nspira init` or `nspira scan` to add projects.");
+        logger::info("No tracked projects. Use `nspira init` or `nspira scan` to add some.");
         return Ok(());
     }
+    let confirm_clean = crate::config::Config::load()
+        .map(|c| c.clean.confirm_before_clean)
+        .unwrap_or(true);
 
-    // Pre-calculate project sizes in parallel across all CPU cores
-    let mut ui_projects = UiProjectItem::from_projects(&projects);
-
+    let mut entries = Entry::from_projects(&projects);
     let mut guard = TerminalGuard::new()?;
-    let mut state = AppState::new();
-    let mut table_state = TableState::default();
-    table_state.select(Some(0));
-
-    let mut progress_popup: Option<ProgressPopup> = None;
+    let mut list = TreeList::new();
+    let mut tab = ViewTab::Projects;
+    let mut sort = SortMode::Name;
+    let mut modal = Modal::None;
+    let mut status = (String::new(), StatusType::Info);
 
     loop {
-        // Fast, purely in-memory filter and sort (0 I/O)
-        let mut display_projects: Vec<(usize, &UiProjectItem)> = ui_projects
+        let order = sorted_order(&entries, sort, &list.query);
+        let visible = list.visible(&entries, &order);
+        list.clamp(visible.len());
+        let cursor = list.cursor(&visible);
+        let targets = list.targets(&entries, cursor);
+        let target_dirs: usize = targets.values().map(Vec::len).sum();
+        let target_bytes: u64 = targets
             .iter()
-            .enumerate()
-            .filter(|(_, p)| {
-                if state.search_query.is_empty() {
-                    true
-                } else {
-                    let q = state.search_query.to_lowercase();
-                    p.name.to_lowercase().contains(&q)
-                        || p.path.to_lowercase().contains(&q)
-                        || p.cache_dirs.iter().any(|d| d.path.to_lowercase().contains(&q))
-                }
-            })
-            .collect();
+            .flat_map(|(&p, cs)| cs.iter().map(move |&c| (p, c)))
+            .map(|(p, c)| entries[p].caches[c].size)
+            .sum();
 
-        match state.sort_mode {
-            SortMode::Name => display_projects.sort_by(|a, b| a.1.name.cmp(&b.1.name)),
-            SortMode::Size => display_projects.sort_by(|a, b| b.1.total_size.cmp(&a.1.total_size)),
-            SortMode::LastCleaned => display_projects.sort_by(|a, b| b.1.last_cleaned.cmp(&a.1.last_cleaned)),
-            SortMode::Id => display_projects.sort_by(|a, b| a.1.id.cmp(&b.1.id)),
-        }
-
-        let total_items = display_projects.len();
-        state.clamp_selection(total_items);
-
-        if table_state.selected().unwrap_or(0) >= total_items && total_items > 0 {
-            table_state.select(Some(total_items - 1));
-        }
-
-        let total_size_all: u64 = display_projects.iter().map(|(_, p)| p.total_size).sum();
-
-        // High-performance render pass
         guard.terminal_mut().draw(|f| {
-            let area = f.size();
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(3), // Header banner
-                    Constraint::Min(5),    // Main table or stats
-                    Constraint::Length(3), // Status & hotkey bar
-                ])
-                .split(area);
+                .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+                .split(f.size());
 
-            // 1. Render Header
-            let search_opt = if state.is_searching || !state.search_query.is_empty() {
-                Some(state.search_query.as_str())
-            } else {
-                None
-            };
-
-            HeaderWidget::new("Tracked Projects")
-                .metric("Total", display_projects.len().to_string())
-                .metric("Cache Size", human_readable_size(total_size_all))
-                .metric("Sort", state.sort_mode.label())
-                .active_tab(state.active_tab)
-                .search_query(search_opt)
+            let filtered_bytes: u64 = order.iter().map(|&i| entries[i].total_size()).sum();
+            HeaderWidget::new("Tracked")
+                .metric("Projects", order.len().to_string())
+                .metric("Cache", human_readable_size(filtered_bytes))
+                .metric("Sort", sort.label())
+                .active_tab(tab)
+                .search_query((list.searching || !list.query.is_empty()).then_some(list.query.as_str()))
                 .render(f, chunks[0]);
 
-            // 2. Render Main Body
-            match state.active_tab {
+            match tab {
                 ViewTab::Projects => {
-                    let rows = display_projects
-                        .iter()
-                        .enumerate()
-                        .map(|(disp_idx, (orig_idx, proj))| {
-                            let is_checked = state.is_selected(*orig_idx);
-                            let is_cursor = table_state.selected() == Some(disp_idx);
-                            let marker = if is_checked { "x" } else { " " };
-
-                            build_table_row(
-                                vec![
-                                    format!("[{}] {}", marker, proj.id),
-                                    proj.name.clone(),
-                                    proj.path.clone(),
-                                    human_readable_size(proj.total_size),
-                                    proj.cache_dirs.len().to_string(),
-                                    proj.formatted_last_cleaned.clone(),
-                                ],
-                                is_checked,
-                                is_cursor,
-                            )
-                        })
-                        .collect();
-
-                    let table_config = TableConfig::new("Projects List")
-                        .headers(vec!["ID", "Name", "Path", "Size", "Caches", "Last Cleaned"])
-                        .constraints(vec![
-                            Constraint::Length(9),
-                            Constraint::Min(14),
-                            Constraint::Min(24),
-                            Constraint::Length(12),
-                            Constraint::Length(8),
-                            Constraint::Length(15),
-                        ]);
-
-                    TableWidget::new(table_config)
+                    let (headers, widths) = tree_columns("Last cleaned");
+                    let rows = tree_rows(&entries, &visible, &list, path_width(chunks[1].width), |e| {
+                        format_cleaned(e.last_cleaned.as_deref())
+                    });
+                    TableWidget::new(TableConfig::new("Projects").headers(headers).constraints(widths))
                         .rows(rows)
-                        .render(f, chunks[1], &mut table_state);
+                        .render(f, chunks[1], &mut list.table);
                 }
-                ViewTab::Stats => {
-                    StatsWidget::new(&ui_projects).render(f, chunks[1]);
-                }
+                ViewTab::Stats => StatsWidget::new(&entries).render(f, chunks[1]),
             }
 
-            // 3. Render Status Bar
-            let status_msg = if state.status_message.is_empty() {
-                format!("Selected {}/{}", state.selected_count(), ui_projects.len())
+            let msg = if !status.0.is_empty() {
+                status.0.clone()
+            } else if !list.selected.is_empty() {
+                format!("{} cache dir(s) selected, {}", target_dirs, human_readable_size(target_bytes))
             } else {
-                state.status_message.clone()
+                String::new()
             };
+            create_project_hints(&msg, &status.1).render(f, chunks[2]);
 
-            create_project_hints(&status_msg, &state.status_type).render(f, chunks[2]);
-
-            // 4. Render Modals & Overlays
-            if let Some(ref progress) = progress_popup {
-                progress.render(f);
-            } else if state.show_help {
-                help_popup().render(f);
-            } else if state.is_searching {
-                search_input_popup(&state.search_query).render(f);
-            } else if state.show_confirmation {
-                let count = if state.selected_count() > 0 {
-                    state.selected_count()
-                } else {
-                    1
-                };
-                confirmation_popup(
-                    "Confirm Action",
-                    "Proceed with action on selected projects?",
-                    count,
-                    Some("This action will operate on your disk cache directories!"),
-                )
-                .render(f);
-            } else if state.show_detail && !display_projects.is_empty() {
-                if let Some(curr_idx) = table_state.selected() {
-                    if let Some((_, proj)) = display_projects.get(curr_idx) {
-                        let cache_details: Vec<(String, u64)> = proj
-                            .cache_dirs
-                            .iter()
-                            .map(|cd| (cd.path.clone(), cd.size))
-                            .collect();
-
-                        project_detail_popup(
-                            &proj.name,
-                            &proj.path,
-                            &cache_details,
-                            &human_readable_size(proj.total_size),
-                        )
-                        .render(f);
+            match modal {
+                Modal::Help => help_popup(&[("Navigation", TREE_KEYS), ("Actions", ACTION_KEYS)]).render(f),
+                Modal::Detail => {
+                    if let Some(node) = cursor {
+                        let e = &entries[node.project()];
+                        let caches: Vec<(String, u64)> =
+                            e.caches.iter().map(|c| (c.path.clone(), c.size)).collect();
+                        project_detail_popup(&e.name, &e.path, &caches, &human_readable_size(e.total_size()))
+                            .render(f);
                     }
                 }
+                Modal::Confirm(Action::Clean) => confirmation_popup(
+                    "Clean caches",
+                    format!(
+                        "Delete the contents of {} cache dir(s), {}?",
+                        target_dirs,
+                        human_readable_size(target_bytes)
+                    ),
+                    targets.len(),
+                    Some("Files inside these directories are permanently deleted."),
+                )
+                .render(f),
+                Modal::Confirm(Action::Untrack) => confirmation_popup(
+                    "Stop tracking",
+                    format!(
+                        "Stop tracking {} cache dir(s)? Fully selected projects are removed.",
+                        target_dirs
+                    ),
+                    targets.len(),
+                    Some("Nothing on disk is deleted."),
+                )
+                .render(f),
+                Modal::None if list.searching => search_input_popup(&list.query).render(f),
+                Modal::None => {}
             }
         })?;
 
-        // Fast Event Polling (50ms tick)
-        if let Some(evt) = poll_event(50)? {
-            match evt {
-                TerminalEvent::Key(key) => {
-                    // Help modal mode
-                    if state.show_help {
-                        if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') | KeyCode::Char('h') | KeyCode::Enter) {
-                            state.show_help = false;
-                        }
-                        continue;
-                    }
+        let Some(TerminalEvent::Key(key)) = poll_event(250)? else {
+            continue;
+        };
+        let code = key.code;
 
-                    // Search input modal mode
-                    if state.is_searching {
-                        match key.code {
-                            KeyCode::Enter => {
-                                state.is_searching = false;
-                                state.set_status("Filter applied", StatusType::Info);
-                            }
-                            KeyCode::Esc => {
-                                state.is_searching = false;
-                                state.search_query.clear();
-                                state.set_status("Filter cleared", StatusType::Info);
-                            }
-                            KeyCode::Backspace => {
-                                state.search_query.pop();
-                            }
-                            KeyCode::Char(c) => {
-                                state.search_query.push(c);
-                            }
-                            _ => {}
-                        }
-                        continue;
-                    }
-
-                    // Detail popup mode
-                    if state.show_detail {
-                        if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('i')) {
-                            state.show_detail = false;
-                        }
-                        continue;
-                    }
-
-                    // Confirmation modal mode
-                    if state.show_confirmation {
-                        match key.code {
-                            KeyCode::Char('y') | KeyCode::Enter => {
-                                state.show_confirmation = false;
-                                let targets: Vec<usize> = if state.selected_count() == 0 {
-                                    if let Some(sel) = table_state.selected() {
-                                        if let Some((orig_idx, _)) = display_projects.get(sel) {
-                                            vec![*orig_idx]
-                                        } else {
-                                            Vec::new()
-                                        }
-                                    } else {
-                                        Vec::new()
-                                    }
-                                } else {
-                                    state.selected_items.iter().cloned().collect()
-                                };
-
-                                let mut removed = 0;
-                                let mut sorted_targets = targets;
-                                sorted_targets.sort_by(|a, b| b.cmp(a));
-
-                                for idx in sorted_targets {
-                                    if idx < ui_projects.len() {
-                                        let pid = ui_projects[idx].id;
-                                        if db::remove_project(conn, pid).is_ok() {
-                                            ui_projects.remove(idx);
-                                            removed += 1;
-                                        }
-                                    }
-                                }
-
-                                state.selected_items.clear();
-                                state.set_status(
-                                    format!("Removed {} project(s) from tracking", removed),
+        match modal {
+            Modal::Help | Modal::Detail => {
+                if matches!(code, KeyCode::Esc | KeyCode::Char('q' | '?' | 'i') | KeyCode::Enter) {
+                    modal = Modal::None;
+                }
+                continue;
+            }
+            Modal::Confirm(action) => {
+                match code {
+                    KeyCode::Char('y') | KeyCode::Enter => {
+                        modal = Modal::None;
+                        status = match action {
+                            Action::Clean => clean_status(clean_targets(conn, &mut guard, &mut entries, &targets)?),
+                            Action::Untrack => {
+                                let (projects, dirs) = untrack_targets(conn, &mut entries, &targets)?;
+                                list.reset();
+                                (
+                                    format!("Untracked {} project(s), {} cache dir(s)", projects, dirs),
                                     StatusType::Success,
-                                );
-
-                                if ui_projects.is_empty() {
-                                    break;
-                                }
+                                )
                             }
-                            KeyCode::Char('n') | KeyCode::Esc => {
-                                state.show_confirmation = false;
-                                state.set_status("Action cancelled", StatusType::Info);
-                            }
-                            _ => {}
+                        };
+                        list.selected.clear();
+                        if entries.is_empty() {
+                            break;
                         }
-                        continue;
                     }
+                    KeyCode::Char('n') | KeyCode::Esc => {
+                        modal = Modal::None;
+                        status = ("Cancelled".into(), StatusType::Info);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
+            Modal::None => {}
+        }
 
-                    // View controls
-                    match key.code {
-                        KeyCode::Char('q') => break,
-                        KeyCode::Char('?') | KeyCode::Char('h') => {
-                            state.show_help = true;
-                        }
-                        KeyCode::Tab => {
-                            state.active_tab = match state.active_tab {
-                                ViewTab::Projects => ViewTab::Stats,
-                                ViewTab::Stats => ViewTab::Projects,
-                            };
-                        }
-                        KeyCode::Char('1') => state.active_tab = ViewTab::Projects,
-                        KeyCode::Char('2') => state.active_tab = ViewTab::Stats,
-                        KeyCode::Char('/') => {
-                            state.is_searching = true;
-                        }
-                        KeyCode::Char('s') => {
-                            state.sort_mode = state.sort_mode.next();
-                            state.set_status(format!("Sorted by {}", state.sort_mode.label()), StatusType::Info);
-                        }
-                        KeyCode::Char('i') => {
-                            if !display_projects.is_empty() {
-                                state.show_detail = true;
-                            }
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if total_items > 0 {
-                                let curr = table_state.selected().unwrap_or(0);
-                                let next = (curr + 1).min(total_items - 1);
-                                table_state.select(Some(next));
-                            }
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if total_items > 0 {
-                                let curr = table_state.selected().unwrap_or(0);
-                                let prev = curr.saturating_sub(1);
-                                table_state.select(Some(prev));
-                            }
-                        }
-                        KeyCode::Home | KeyCode::Char('g') => {
-                            if total_items > 0 {
-                                table_state.select(Some(0));
-                            }
-                        }
-                        KeyCode::End | KeyCode::Char('G') => {
-                            if total_items > 0 {
-                                table_state.select(Some(total_items - 1));
-                            }
-                        }
-                        KeyCode::Char(' ') => {
-                            if let Some(sel) = table_state.selected() {
-                                if let Some((orig_idx, _)) = display_projects.get(sel) {
-                                    if state.selected_items.contains(orig_idx) {
-                                        state.selected_items.remove(orig_idx);
-                                    } else {
-                                        state.selected_items.insert(*orig_idx);
-                                    }
-                                }
-                            }
-                        }
-                        KeyCode::Char('a') => {
-                            state.toggle_select_all(ui_projects.len());
-                        }
-                        KeyCode::Char('v') => {
-                            state.invert_selection(ui_projects.len());
-                        }
-                        KeyCode::Char('c') | KeyCode::Enter => {
-                            let targets: Vec<usize> = if state.selected_count() == 0 {
-                                if let Some(sel) = table_state.selected() {
-                                    if let Some((orig_idx, _)) = display_projects.get(sel) {
-                                        vec![*orig_idx]
-                                    } else {
-                                        Vec::new()
-                                    }
-                                } else {
-                                    Vec::new()
-                                }
-                            } else {
-                                state.selected_items.iter().cloned().collect()
-                            };
+        if list.searching {
+            list.handle_search_key(code);
+            continue;
+        }
 
-                            if !targets.is_empty() {
-                                let mut total_freed = 0u64;
-                                progress_popup = Some(ProgressPopup::new("Cleaning Cache", targets.len()));
+        status.0.clear();
+        if tab == ViewTab::Projects && list.handle_key(code, &entries, &visible, &order) {
+            continue;
+        }
 
-                                for (step, &orig_idx) in targets.iter().enumerate() {
-                                    if orig_idx < ui_projects.len() {
-                                        let proj = &ui_projects[orig_idx];
-
-                                        if let Some(ref mut prog) = progress_popup {
-                                            prog.update(&proj.name, step + 1, total_freed);
-                                        }
-
-                                        guard.terminal_mut().draw(|f| {
-                                            if let Some(ref prog) = progress_popup {
-                                                prog.render(f);
-                                            }
-                                        })?;
-
-                                        let paths: Vec<String> = proj.cache_dirs.iter().map(|c| c.path.clone()).collect();
-                                        let freed = crate::core::CacheManager::clean_multiple(&paths)?;
-                                        total_freed += freed;
-
-                                        let _ = db::update_project_last_cleaned(conn, proj.id);
-
-                                        // Update in-memory cached state immediately
-                                        let now_str = Utc::now().to_rfc3339();
-                                        ui_projects[orig_idx].last_cleaned = now_str.clone();
-                                        ui_projects[orig_idx].formatted_last_cleaned = format_cleaned_date(&now_str);
-                                        ui_projects[orig_idx].total_size = 0;
-                                        for cd in &mut ui_projects[orig_idx].cache_dirs {
-                                            cd.size = 0;
-                                        }
-                                    }
-                                }
-
-                                progress_popup = None;
-                                state.selected_items.clear();
-                                state.set_status(
-                                    format!("Cleaned {} project(s), freed {}", targets.len(), human_readable_size(total_freed)),
-                                    StatusType::Success,
-                                );
-                            } else {
-                                state.set_status("No projects selected to clean", StatusType::Warning);
-                            }
-                        }
-                        KeyCode::Char('d') | KeyCode::Delete => {
-                            if !display_projects.is_empty() {
-                                state.show_confirmation = true;
-                            }
-                        }
-                        KeyCode::Esc => {
-                            if !state.search_query.is_empty() {
-                                state.search_query.clear();
-                                state.set_status("Filter cleared", StatusType::Info);
-                            } else {
-                                state.selected_items.clear();
-                            }
-                        }
-                        _ => {}
+        match code {
+            KeyCode::Char('q') => break,
+            KeyCode::Char('?') => modal = Modal::Help,
+            KeyCode::Tab => {
+                tab = if tab == ViewTab::Projects { ViewTab::Stats } else { ViewTab::Projects }
+            }
+            KeyCode::Char('1') => tab = ViewTab::Projects,
+            KeyCode::Char('2') => tab = ViewTab::Stats,
+            KeyCode::Char('s') => sort = sort.next(),
+            KeyCode::Enter => {
+                if let Some(node) = cursor {
+                    let p = node.project();
+                    if !list.expanded.remove(&p) {
+                        list.expanded.insert(p);
                     }
                 }
-                TerminalEvent::Resize(_, _) => {}
             }
+            KeyCode::Char('i') if cursor.is_some() => modal = Modal::Detail,
+            KeyCode::Char('c') if target_dirs > 0 => {
+                if confirm_clean {
+                    modal = Modal::Confirm(Action::Clean);
+                } else {
+                    status = clean_status(clean_targets(conn, &mut guard, &mut entries, &targets)?);
+                    list.selected.clear();
+                }
+            }
+            KeyCode::Char('d') | KeyCode::Delete if cursor.is_some() => {
+                modal = Modal::Confirm(Action::Untrack)
+            }
+            _ => {}
         }
     }
 
     Ok(())
 }
 
-fn format_cleaned_date(raw_date: &str) -> String {
-    if raw_date == "Never" || raw_date.is_empty() {
-        "Never".to_string()
-    } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(raw_date) {
-        dt.format("%Y-%m-%d %H:%M").to_string()
-    } else {
-        raw_date.chars().take(10).collect()
+fn clean_status(t: CleanTotals) -> (String, StatusType) {
+    let mut msg = format!("Cleaned {} dir(s), freed {}", t.dirs, human_readable_size(t.bytes));
+    if t.failed > 0 {
+        msg.push_str(&format!(", {} failed", t.failed));
+        return (msg, StatusType::Warning);
     }
+    (msg, StatusType::Success)
+}
+
+/// Clean the targeted caches with a progress popup; refresh sizes afterwards.
+fn clean_targets(
+    conn: &Connection,
+    guard: &mut TerminalGuard,
+    entries: &mut [Entry],
+    targets: &BTreeMap<usize, Vec<usize>>,
+) -> Result<CleanTotals> {
+    let steps = targets.values().map(Vec::len).sum();
+    let mut progress = ProgressPopup::new("Cleaning", steps);
+    guard.terminal_mut().draw(|f| progress.render(f))?;
+
+    let mut totals = CleanTotals::default();
+    let mut step = 0;
+    for (&p, cs) in targets {
+        let Some(id) = entries[p].id else { continue };
+        let paths: Vec<String> = cs.iter().map(|&c| entries[p].caches[c].path.clone()).collect();
+        let freed_before = totals.bytes;
+        let mut freed = 0;
+        let t = clean_project(conn, id, &paths, |path, result| {
+            step += 1;
+            freed += *result.as_ref().unwrap_or(&0);
+            progress.update(path, step, freed_before + freed);
+            let _ = guard.terminal_mut().draw(|f| progress.render(f));
+        })?;
+        totals.add(t);
+
+        for &c in cs {
+            let cache = &mut entries[p].caches[c];
+            cache.size = get_dir_size(&cache.path);
+        }
+        entries[p].last_cleaned = Some(chrono::Utc::now().to_rfc3339());
+    }
+    Ok(totals)
+}
+
+/// Untrack whole projects when all their caches are targeted, otherwise just
+/// the targeted cache dirs. Returns (projects removed, cache dirs removed).
+fn untrack_targets(
+    conn: &Connection,
+    entries: &mut Vec<Entry>,
+    targets: &BTreeMap<usize, Vec<usize>>,
+) -> Result<(usize, usize)> {
+    let (mut projects, mut dirs) = (0, 0);
+    // Highest index first so earlier indices stay valid while removing.
+    for (&p, cs) in targets.iter().rev() {
+        let Some(id) = entries[p].id else { continue };
+        if cs.len() == entries[p].caches.len() {
+            db::remove_project(conn, id)?;
+            entries.remove(p);
+            projects += 1;
+        } else {
+            for &c in cs.iter().rev() {
+                db::remove_cache_dir(conn, id, &entries[p].caches[c].path)?;
+                entries[p].caches.remove(c);
+                dirs += 1;
+            }
+        }
+    }
+    Ok((projects, dirs))
 }

@@ -2,6 +2,7 @@ pub mod add;
 pub mod clean;
 pub mod doctor;
 pub mod flush;
+pub mod ignore;
 pub mod init;
 pub mod list;
 pub mod remove;

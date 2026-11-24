@@ -1,59 +1,49 @@
 use crate::core::{ScanConfig, Scanner};
-use crate::ui::views::run_scan_view;
-use crate::utils::logger::{info, task};
+use crate::utils::logger::{info, success, task};
 use anyhow::Result;
-use std::collections::HashSet;
 use std::path::PathBuf;
 
 pub fn run(custom_path: Option<PathBuf>) -> Result<()> {
-    task("Loading configuration...");
     let app_config = crate::config::Config::load()?;
-
-    // Configure thread pool for parallel operations
     crate::utils::parallel::configure_thread_pool(app_config.scan.parallelism)?;
 
-    task("Loading scan patterns...");
     let mut scan_config = ScanConfig::load()?;
-
-    // Merge skip directories from app config
-    for skip_dir in &app_config.scan.skip_directories {
-        if !scan_config.skip_dirs.contains(skip_dir) {
-            scan_config.skip_dirs.push(skip_dir.clone());
+    for dir in &app_config.scan.skip_directories {
+        if !scan_config.skip_dirs.contains(dir) {
+            scan_config.skip_dirs.push(dir.clone());
         }
     }
 
-    info(&format!(
-        "Loaded {} project patterns",
-        scan_config.patterns.len()
-    ));
-
-    task("Starting filesystem scan...");
-    let start_paths = if let Some(path) = custom_path {
-        vec![path]
-    } else {
-        crate::utils::fs::get_default_scan_paths()
+    let roots = match custom_path {
+        Some(p) => vec![crate::utils::absolute(p)],
+        None => crate::utils::fs::get_default_scan_paths(),
     };
 
-    for path in &start_paths {
-        info(&format!("Scanning from: {}", path.display()));
-    }
-    info(&format!("Max depth: {}", app_config.scan.max_depth));
-    println!();
-
-    let tracked_paths = get_tracked_paths()?;
-    let scanner = Scanner::new(scan_config, tracked_paths);
-    let detected = scanner.scan_multiple(&start_paths, app_config.scan.max_depth)?;
-
-    // Run interactive TUI view
-    run_scan_view(detected)?;
-
-    Ok(())
-}
-
-fn get_tracked_paths() -> Result<HashSet<PathBuf>> {
-    let projects = crate::core::ProjectManager::get_all()?;
-    Ok(projects
+    // Tracked projects and ignored paths are pruned with their whole subtree.
+    let conn = crate::db::connect()?;
+    let ignored = crate::db::get_ignored(&conn)?;
+    let mut excluded: Vec<PathBuf> = crate::db::get_all_projects(&conn)?
         .into_iter()
         .map(|p| PathBuf::from(p.path))
-        .collect())
+        .collect();
+    excluded.extend(ignored.iter().map(PathBuf::from));
+
+    for root in &roots {
+        task(&format!("Scanning {}", root.display()));
+    }
+    info(&format!(
+        "{} patterns, depth {}, {} ignored path(s)",
+        scan_config.patterns.len(),
+        app_config.scan.max_depth,
+        ignored.len()
+    ));
+
+    let detected = Scanner::new(scan_config, excluded).scan(&roots, app_config.scan.max_depth);
+    if detected.is_empty() {
+        info("No untracked projects found");
+        return Ok(());
+    }
+    success(&format!("Found {} untracked project(s)", detected.len()));
+
+    crate::ui::views::run_scan_view(detected)
 }

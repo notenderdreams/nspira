@@ -1,90 +1,47 @@
 use crate::db;
 use crate::utils::logger::{ask_input, info, success};
+use anyhow::{Result, bail};
 use colored::Colorize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> anyhow::Result<()> {
+pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> Result<()> {
     if cache_dirs.is_empty() {
-        anyhow::bail!("At least one cache directory must be provided");
+        bail!("At least one cache directory must be provided");
     }
 
-    // Convert all paths to absolute paths
-    let cache_dirs: Vec<PathBuf> = cache_dirs
-        .into_iter()
-        .map(|path| {
-            if path.is_absolute() {
-                path
-            } else {
-                std::env::current_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."))
-                    .join(path)
-            }
-        })
-        .collect();
+    let cwd = std::env::current_dir()?;
+    let cache_dirs: Vec<PathBuf> = cache_dirs.into_iter().map(crate::utils::absolute).collect();
 
-    // Get project directory from the first cache dir's parent
-    let project_dir = cache_dirs[0]
+    // Project root = parent of the first cache dir.
+    let project_path = cache_dirs[0]
         .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .to_path_buf();
+        .unwrap_or(&cwd)
+        .to_string_lossy()
+        .to_string();
+    let cache_paths: Vec<String> = cache_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect();
 
-    // Convert PathBuf vector to Vec<String> with absolute paths
-    let cache_paths: Vec<String> = cache_dirs
-        .iter()
-        .map(|p| {
-            if p.is_absolute() {
-                p.to_string_lossy().to_string()
-            } else {
-                std::env::current_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."))
-                    .join(p)
-                    .to_string_lossy()
-                    .to_string()
-            }
-        })
-        .collect();
-
-    // Convert project_dir to absolute path string
-    let project_path = if project_dir.is_absolute() {
-        project_dir.to_string_lossy().to_string()
-    } else {
-        std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join(&project_dir)
-            .to_string_lossy()
-            .to_string()
-    };
-
-    // Summary
     info(&format!("Project: {}", project_name.bold()));
     info(&format!("Path: {}", project_path.bold()));
-    info(&format!("Cache directories ({}): ", cache_paths.len()));
-    for (idx, cache) in cache_paths.iter().enumerate() {
-        println!("  {}. {}", idx + 1, cache);
+    for cache in &cache_paths {
+        info(&format!("  cache: {}", cache));
     }
 
-    // Confirm
-    let confirm = ask_input("Add this project? (y/n)");
-    if confirm.to_lowercase() != "y" {
+    if !ask_input("Add this project? (y/n)").eq_ignore_ascii_case("y") {
         info("Cancelled");
         return Ok(());
     }
 
-    let cache_count = cache_paths.len();
-
     let conn = db::connect()?;
-    let project_id = db::add_project(&conn, project_name, &project_path)?;
-
-    // Add cache directories
-    for cache_path in cache_paths {
-        db::add_cache_directory(&conn, project_id, &cache_path)?;
+    if db::get_project_by_path(&conn, &project_path)?.is_some() {
+        bail!("{} is already tracked", project_path);
     }
+    db::add_project(&conn, project_name, &project_path, &cache_paths)?;
 
     success(&format!(
-        "New project created with {} cache director{}",
-        cache_count,
-        if cache_count == 1 { "y" } else { "ies" }
+        "Tracking {} with {} cache director{}",
+        project_name,
+        cache_paths.len(),
+        if cache_paths.len() == 1 { "y" } else { "ies" }
     ));
-
     Ok(())
 }

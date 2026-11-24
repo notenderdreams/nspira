@@ -17,6 +17,15 @@ use ratatui::{
     widgets::TableState,
 };
 
+const DOCTOR_KEYS: &[(&str, &str)] = &[
+    ("Up/Down j/k", "Move"),
+    ("Space", "Select"),
+    ("d / Del", "Stop tracking selected (or cursor) project"),
+    ("f", "Show issues only / all"),
+    ("i", "Project details"),
+    ("q", "Quit"),
+];
+
 pub fn run_doctor_view(
     project_healths: Vec<ProjectHealth>,
     mut healthy_count: usize,
@@ -142,7 +151,7 @@ pub fn run_doctor_view(
 
             // Confirmation popup
             if state.show_help {
-                help_popup().render(f);
+                help_popup(&[("Actions", DOCTOR_KEYS)]).render(f);
             } else if state.show_confirmation {
                 let count = if state.selected_count() > 0 { state.selected_count() } else { 1 };
                 confirmation_popup(
@@ -174,7 +183,7 @@ pub fn run_doctor_view(
         })?;
 
         // Controls (16ms tick)
-        if let Some(evt) = poll_event(50)? {
+        if let Some(evt) = poll_event(250)? {
             match evt {
                 TerminalEvent::Key(key) => {
                     if state.show_help {
@@ -248,7 +257,7 @@ pub fn run_doctor_view(
 
                     match key.code {
                         KeyCode::Char('q') => break,
-                        KeyCode::Char('?') | KeyCode::Char('h') => {
+                        KeyCode::Char('?') => {
                             state.show_help = true;
                         }
                         KeyCode::Char('f') => {

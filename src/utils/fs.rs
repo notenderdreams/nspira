@@ -17,40 +17,50 @@ pub fn human_readable_size(bytes: u64) -> String {
     }
 }
 
-pub fn get_dir_size(path: &str) -> u64 {
-    let mut size = 0;
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                if let Ok(metadata) = path.metadata() {
-                    size += metadata.len();
-                }
-            } else if path.is_dir() {
-                size += get_dir_size(path.to_str().unwrap());
+/// Absolute path with `.` and `..` resolved lexically. Symlinks are kept as-is
+/// so the result matches paths produced by walking the filesystem.
+pub fn absolute(path: impl AsRef<Path>) -> std::path::PathBuf {
+    use std::path::Component;
+    let joined = std::env::current_dir().unwrap_or_default().join(path);
+    let mut out = std::path::PathBuf::new();
+    for c in joined.components() {
+        match c {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
             }
+            other => out.push(other),
         }
     }
-    size
+    out
 }
 
-pub fn clean_dir(path: &str) -> anyhow::Result<()> {
-    let path = Path::new(path);
+/// Total size of regular files under `path`. Symlinks are not followed.
+pub fn get_dir_size(path: impl AsRef<Path>) -> u64 {
+    walkdir::WalkDir::new(path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
+}
 
-    if !path.exists() || !path.is_dir() {
+/// Delete everything inside `path`, keeping the directory itself.
+/// Symlinks are removed, never followed. Missing directories are a no-op.
+pub fn clean_dir(path: impl AsRef<Path>) -> anyhow::Result<()> {
+    let path = path.as_ref();
+    if !path.is_dir() {
         return Ok(());
     }
-
-    let entries = fs::read_dir(path)?;
-
-    for entry in entries {
+    for entry in fs::read_dir(path)? {
         let entry = entry?;
         let entry_path = entry.path();
-
-        if entry_path.is_file() {
-            fs::remove_file(&entry_path)?;
-        } else if entry_path.is_dir() {
+        if entry.file_type()?.is_dir() {
             fs::remove_dir_all(&entry_path)?;
+        } else {
+            fs::remove_file(&entry_path)?;
         }
     }
     Ok(())

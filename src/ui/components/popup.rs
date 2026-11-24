@@ -255,78 +255,46 @@ pub fn search_input_popup(current_query: &str) -> PopupWidget {
         .content(lines)
 }
 
-/// Quick help modal cheat sheet
-pub fn help_popup() -> PopupWidget {
-    let lines = vec![
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled("NAVIGATION & SELECTION", Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
-        ]),
-        Line::from(vec![
-            Span::styled("   Up / k / Down / j ", Style::default().fg(Theme::WARNING)),
-            Span::raw(" Move cursor up / down"),
-        ]),
-        Line::from(vec![
-            Span::styled("   Home / g / End / G ", Style::default().fg(Theme::WARNING)),
-            Span::raw(" Jump to top / bottom"),
-        ]),
-        Line::from(vec![
-            Span::styled("   Space            ", Style::default().fg(Theme::WARNING)),
-            Span::raw(" Toggle select item"),
-        ]),
-        Line::from(vec![
-            Span::styled("   a / v            ", Style::default().fg(Theme::WARNING)),
-            Span::raw(" Select all / Invert selection"),
-        ]),
-        Line::raw(""),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled("ACTIONS & VIEWS", Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
-        ]),
-        Line::from(vec![
-            Span::styled("   c / Enter        ", Style::default().fg(Theme::SUCCESS)),
-            Span::raw(" Clean cache of selected project(s)"),
-        ]),
-        Line::from(vec![
-            Span::styled("   d / Delete       ", Style::default().fg(Theme::DANGER)),
-            Span::raw(" Remove project(s) from tracking"),
-        ]),
-        Line::from(vec![
-            Span::styled("   /                ", Style::default().fg(Theme::ACCENT)),
-            Span::raw(" Live search filter"),
-        ]),
-        Line::from(vec![
-            Span::styled("   s                ", Style::default().fg(Theme::SECONDARY)),
-            Span::raw(" Cycle sort mode (Name, Size, Cleaned, ID)"),
-        ]),
-        Line::from(vec![
-            Span::styled("   i                ", Style::default().fg(Theme::PRIMARY)),
-            Span::raw(" Inspect project cache details"),
-        ]),
-        Line::from(vec![
-            Span::styled("   Tab / 1 / 2      ", Style::default().fg(Theme::TEXT)),
-            Span::raw(" Switch between Projects and Stats view"),
-        ]),
-        Line::from(vec![
-            Span::styled("   ? / h            ", Style::default().fg(Theme::WARNING)),
-            Span::raw(" Toggle this help cheat sheet"),
-        ]),
-        Line::from(vec![
-            Span::styled("   q / Esc          ", Style::default().fg(Theme::DANGER)),
-            Span::raw(" Quit / Dismiss modal"),
-        ]),
-        Line::raw(""),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled("Press [Esc / q / ?] to dismiss help", Style::default().fg(Theme::TEXT_MUTED)),
-        ]),
-    ];
+/// Help modal: sections of (keys, description) pairs.
+pub fn help_popup(sections: &[(&str, &[(&str, &str)])]) -> PopupWidget {
+    let key_width = sections
+        .iter()
+        .flat_map(|(_, items)| items.iter().map(|(k, _)| k.len()))
+        .max()
+        .unwrap_or(0);
+
+    let mut lines = Vec::new();
+    for (i, (title, items)) in sections.iter().enumerate() {
+        if i > 0 {
+            lines.push(Line::raw(""));
+        }
+        lines.push(Line::styled(format!("  {}", title), Theme::header_style()));
+        for (keys, desc) in items.iter() {
+            lines.push(Line::from(vec![
+                Span::styled(format!("    {:<w$}  ", keys, w = key_width), Theme::help_key_style()),
+                Span::raw(desc.to_string()),
+            ]));
+        }
+    }
+    lines.push(Line::raw(""));
+    lines.push(Line::styled("  Esc / q / ? to close", Theme::muted()));
 
     let height = lines.len() as u16 + 2;
-
-    PopupWidget::new("Keyboard Shortcuts Cheat Sheet")
+    PopupWidget::new("Keys")
         .border_color(Theme::PRIMARY)
-        .size(65, height)
+        .size(50, height)
         .alignment(Alignment::Left)
         .content(lines)
 }
+
+/// Navigation/selection keys shared by the tree views.
+pub const TREE_KEYS: &[(&str, &str)] = &[
+    ("Up/Down j/k", "Move"),
+    ("PgUp/PgDn g/G", "Page / top / bottom"),
+    ("Right/l", "Expand project (again: enter it)"),
+    ("Left/h", "Collapse"),
+    ("Space", "Select project or cache dir"),
+    ("a", "Select all / none"),
+    ("/", "Filter"),
+    ("Esc", "Clear filter, then selection"),
+];

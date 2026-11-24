@@ -1,7 +1,7 @@
 pub mod queries;
 pub mod schema;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use rusqlite::Connection;
 use std::fs;
 use std::path::PathBuf;
@@ -10,48 +10,33 @@ pub use queries::*;
 pub use schema::*;
 
 pub fn get_db_path() -> Result<PathBuf> {
-    // In dev mode using the current dir
+    // Debug builds keep the DB in the working directory.
     if cfg!(debug_assertions) {
-        Ok(PathBuf::from("nspira.db"))
-    } else {
-        let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-        let nspira_dir = dir.join("nspira");
-        if !nspira_dir.exists() {
-            fs::create_dir_all(&nspira_dir)?;
-        }
-        Ok(nspira_dir.join("nspira.db"))
+        return Ok(PathBuf::from("nspira.db"));
     }
+    let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("nspira");
+    fs::create_dir_all(&dir)?;
+    Ok(dir.join("nspira.db"))
 }
 
+/// Open the database with foreign keys enforced and the schema in place.
 pub fn connect() -> Result<Connection> {
-    let path = get_db_path()?;
-    Connection::open(path).map_err(|e| anyhow!(e))
+    let conn = Connection::open(get_db_path()?)?;
+    prepare(&conn)?;
+    Ok(conn)
 }
 
-pub fn init_db() -> Result<()> {
-    let conn = connect()?;
-
-    // Create tables
-    conn.execute(schema::CREATE_PROJECTS_TABLE, [])?;
-    conn.execute(schema::CREATE_CACHE_DIRECTORIES_TABLE, [])?;
-    conn.execute(schema::CREATE_CLEANING_HISTORY_TABLE, [])?;
-
-    // Create indices
-    conn.execute(schema::CREATE_PROJECTS_INDEX, [])?;
-    conn.execute(schema::CREATE_CACHE_DIRS_INDEX, [])?;
-    conn.execute(schema::CREATE_HISTORY_INDEX, [])?;
-    conn.execute(schema::CREATE_HISTORY_DATE_INDEX, [])?;
-
+pub(crate) fn prepare(conn: &Connection) -> Result<()> {
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    conn.execute_batch(schema::SCHEMA)?;
     Ok(())
 }
 
-pub fn flush_db() -> Result<()> {
+pub fn flush_db() -> Result<bool> {
     let db_path = get_db_path()?;
-    if db_path.exists() {
-        fs::remove_file(&db_path)?;
-        crate::utils::logger::info("Database has been deleted!");
-    } else {
-        crate::utils::logger::info("Database does not exist!");
+    if !db_path.exists() {
+        return Ok(false);
     }
-    Ok(())
+    fs::remove_file(&db_path)?;
+    Ok(true)
 }

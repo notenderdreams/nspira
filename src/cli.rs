@@ -1,4 +1,4 @@
-use crate::{db, utils};
+use crate::utils;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use utils::logger::*;
@@ -52,11 +52,26 @@ pub enum Commands {
         /// Optional path to scan (defaults to standard OS locations)
         path: Option<PathBuf>,
     },
+    /// Manage paths that scans skip (with their whole subtree)
+    Ignore {
+        #[command(subcommand)]
+        action: IgnoreAction,
+    },
     /// Manage configuration
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
+}
+
+#[derive(Subcommand)]
+pub enum IgnoreAction {
+    /// List ignored paths
+    List,
+    /// Ignore a path in future scans
+    Add { path: PathBuf },
+    /// Stop ignoring a path
+    Remove { path: PathBuf },
 }
 
 #[derive(Subcommand)]
@@ -75,11 +90,6 @@ impl Cli {
     }
 
     pub fn run(&self) -> anyhow::Result<()> {
-        if let Err(e) = db::init_db() {
-            error(&format!("Failed to initialize database: {}", e));
-            std::process::exit(1);
-        }
-
         match &self.command {
             Commands::Init { path } => crate::commands::init::run(path.clone())?,
             Commands::Add { name, cache_paths } => {
@@ -92,6 +102,11 @@ impl Cli {
             Commands::Doctor => crate::commands::doctor::run()?,
             Commands::Flush => crate::commands::flush::run()?,
             Commands::Scan { path } => crate::commands::scan::run(path.clone())?,
+            Commands::Ignore { action } => match action {
+                IgnoreAction::List => crate::commands::ignore::list()?,
+                IgnoreAction::Add { path } => crate::commands::ignore::add(path)?,
+                IgnoreAction::Remove { path } => crate::commands::ignore::remove(path)?,
+            },
             Commands::Config { action } => {
                 use crate::config::Config;
 
@@ -107,7 +122,7 @@ impl Cli {
                     }
                     ConfigAction::Reset => {
                         Config::reset()?;
-                        println!("Configuration reset to defaults");
+                        success("Configuration reset to defaults");
                     }
                 }
             }

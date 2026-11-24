@@ -2,6 +2,7 @@ pub mod components;
 pub mod model;
 pub mod state;
 pub mod theme;
+pub mod tree;
 pub mod views;
 
 pub use components::*;

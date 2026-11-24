@@ -1,114 +1,68 @@
+use crate::core::{ScanConfig, Scanner};
 use crate::db;
-use crate::utils::logger;
-use crate::utils::logger::{info, success};
+use crate::utils::logger::{ask_input, info, success};
+use anyhow::{Result, bail};
 use colored::Colorize;
 use std::path::PathBuf;
 
-pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
+/// Track the current directory. Caches are auto-detected (including nested
+/// sub-projects) unless `path` is given.
+pub fn run(path: Option<PathBuf>) -> Result<()> {
     let project_dir = std::env::current_dir()?;
+    let project_path = project_dir.to_string_lossy().to_string();
     let project_name = project_dir
         .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| project_path.clone());
 
-    let cache_dirs = if let Some(p) = path {
-        vec![p]
-    } else {
-        let identifier_patterns = vec![
-            (
-                "package.json",
-                vec!["node_modules", ".next", "dist", "build"],
-            ), // Node / JS
-            ("Cargo.toml", vec!["target"]),             // Rust
-            ("pom.xml", vec!["target"]),                // Maven
-            ("build.gradle", vec!["build", ".gradle"]), // Gradle
-            ("go.mod", vec!["bin", "pkg"]),             // Go
-            ("requirements.txt", vec!["__pycache__", ".venv", "venv"]), // Python
-        ];
+    let conn = db::connect()?;
+    if db::get_project_by_path(&conn, &project_path)?.is_some() {
+        bail!("{} is already tracked", project_path);
+    }
 
-        let mut detected_caches: Vec<PathBuf> = Vec::new();
-
-        for (identifier, possible_caches) in identifier_patterns {
-            let iden_path = project_dir.join(identifier);
-            if iden_path.exists() {
-                info(&format!("{} file found", identifier.bold()));
-
-                // Check which cache directories actually exist
-                for cache in possible_caches {
-                    let cache_path = project_dir.join(cache);
-                    if cache_path.exists() {
-                        detected_caches.push(cache_path);
-                        info(&format!("  Found cache directory: {}", cache.bold()));
-                    }
-                }
-                break;
+    let mut cache_dirs: Vec<PathBuf> = match path {
+        Some(p) => vec![crate::utils::absolute(p)],
+        None => {
+            let config = crate::config::Config::load()?;
+            let found = Scanner::new(ScanConfig::load()?, Vec::new())
+                .scan(std::slice::from_ref(&project_dir), config.scan.max_depth);
+            for p in &found {
+                info(&format!("detected {} at {}", p.kind_label().bold(), p.path.display()));
             }
-        }
-
-        if detected_caches.is_empty() {
-            //  to provide cache directories manually
-            let mut manual_caches = Vec::new();
-            loop {
-                let cache_input =
-                    logger::ask_input("Enter cache directory path (or press Enter to finish)");
-                if cache_input.trim().is_empty() {
-                    break;
-                }
-                manual_caches.push(PathBuf::from(cache_input));
-            }
-
-            if manual_caches.is_empty() {
-                anyhow::bail!("At least one cache directory must be provided");
-            }
-            manual_caches
-        } else {
-            // to add more cache directories
-            let add_more = logger::ask_input("Add more cache directories? (y/n)");
-            if add_more.to_lowercase() == "y" {
-                loop {
-                    let cache_input =
-                        logger::ask_input("Enter cache directory path (or press Enter to finish)");
-                    if cache_input.trim().is_empty() {
-                        break;
-                    }
-                    detected_caches.push(PathBuf::from(cache_input));
-                }
-            }
-            detected_caches
+            found.into_iter().flat_map(|p| p.cache_dirs).collect()
         }
     };
 
-    // Display summary
-    println!();
+    let prompt = if cache_dirs.is_empty() {
+        "Cache directory (Enter to finish)"
+    } else {
+        "Extra cache directory (Enter to finish)"
+    };
+    loop {
+        let input = ask_input(prompt);
+        if input.is_empty() {
+            break;
+        }
+        cache_dirs.push(crate::utils::absolute(input));
+    }
+    if cache_dirs.is_empty() {
+        bail!("At least one cache directory must be provided");
+    }
+
+    let cache_paths: Vec<String> = cache_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect();
+
     info(&format!("Project: {}", project_name.bold()));
-    info(&format!("Path: {}", project_dir.to_str().unwrap().bold()));
-    info(&format!("Cache directories ({}): ", cache_dirs.len()));
-    for (idx, cache) in cache_dirs.iter().enumerate() {
-        println!("  {}. {}", idx + 1, cache.to_str().unwrap());
+    info(&format!("Path: {}", project_path.bold()));
+    for cache in &cache_paths {
+        info(&format!("  cache: {}", cache));
     }
 
-    // Convert to Vec<String>
-    let cache_paths: Vec<String> = cache_dirs
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect();
-
-    // Add project
-    let conn = db::connect()?;
-    let project_id = db::add_project(&conn, &project_name, project_dir.to_str().unwrap())?;
-
-    // Add cache directories
-    for cache_path in &cache_paths {
-        db::add_cache_directory(&conn, project_id, cache_path)?;
-    }
-
-    // Confirm
-    println!();
+    db::add_project(&conn, &project_name, &project_path, &cache_paths)?;
     success(&format!(
-        "New project created with {} cache director{}",
-        cache_dirs.len(),
-        if cache_dirs.len() == 1 { "y" } else { "ies" }
+        "Tracking {} with {} cache director{}",
+        project_name,
+        cache_paths.len(),
+        if cache_paths.len() == 1 { "y" } else { "ies" }
     ));
     Ok(())
 }

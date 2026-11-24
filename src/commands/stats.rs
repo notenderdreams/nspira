@@ -14,10 +14,13 @@ pub fn run() -> anyhow::Result<()> {
         }
     }
 
+    let freed = db::total_bytes_freed(&conn)?;
+
     println!();
-    println!("{}", "Cache Statistics".bright_blue());
-    println!("{:<18} {:>14}", "Projects tracked", project_count);
-    println!("{:<18} {:>14}", "Total cache size", human_readable_size(total_storage_occupied));
+    println!("  {}", "Cache statistics".bold());
+    println!("  {:<18} {:>12}", "Projects tracked", project_count);
+    println!("  {:<18} {:>12}", "Current cache", human_readable_size(total_storage_occupied));
+    println!("  {:<18} {:>12}", "Freed all-time", human_readable_size(freed));
     println!();
 
     Ok(())

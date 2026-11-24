@@ -1,4 +1,4 @@
-use crate::ui::model::UiProjectItem;
+use crate::ui::model::Entry;
 use crate::ui::theme::Theme;
 use crate::utils::human_readable_size;
 use ratatui::{
@@ -11,11 +11,11 @@ use ratatui::{
 use std::collections::HashMap;
 
 pub struct StatsWidget<'a> {
-    projects: &'a [UiProjectItem],
+    projects: &'a [Entry],
 }
 
 impl<'a> StatsWidget<'a> {
-    pub fn new(projects: &'a [UiProjectItem]) -> Self {
+    pub fn new(projects: &'a [Entry]) -> Self {
         Self { projects }
     }
 
@@ -27,20 +27,20 @@ impl<'a> StatsWidget<'a> {
 
         let mut total_bytes: u64 = 0;
         let mut type_breakdown: HashMap<String, (usize, u64)> = HashMap::new();
-        let mut largest_project: Option<(&UiProjectItem, u64)> = None;
+        let mut largest_project: Option<(&Entry, u64)> = None;
 
         for proj in self.projects {
-            let proj_bytes: u64 = proj.total_size;
+            let proj_bytes: u64 = proj.total_size();
             total_bytes += proj_bytes;
 
             // Detect ecosystem type
-            let proj_type = if proj.path.contains("node") || proj.cache_dirs.iter().any(|d| d.path.contains("node_modules")) {
+            let proj_type = if proj.path.contains("node") || proj.caches.iter().any(|d| d.path.contains("node_modules")) {
                 "Node.js"
-            } else if proj.cache_dirs.iter().any(|d| d.path.contains("target")) {
+            } else if proj.caches.iter().any(|d| d.path.contains("target")) {
                 "Rust / Java"
-            } else if proj.cache_dirs.iter().any(|d| d.path.contains("build") || d.path.contains(".gradle")) {
+            } else if proj.caches.iter().any(|d| d.path.contains("build") || d.path.contains(".gradle")) {
                 "Gradle / Mobile"
-            } else if proj.cache_dirs.iter().any(|d| d.path.contains("__pycache__") || d.path.contains("venv")) {
+            } else if proj.caches.iter().any(|d| d.path.contains("__pycache__") || d.path.contains("venv")) {
                 "Python"
             } else {
                 "Custom / Other"

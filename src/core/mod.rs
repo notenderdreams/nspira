@@ -1,7 +1,5 @@
-pub mod cache;
-pub mod project;
+pub mod cleaner;
 pub mod scanner;
 
-pub use cache::*;
-pub use project::*;
+pub use cleaner::*;
 pub use scanner::*;
