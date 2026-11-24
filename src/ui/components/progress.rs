@@ -51,7 +51,11 @@ impl ProgressPopup {
         let max_target_len = (popup_area.width.saturating_sub(22)) as usize;
         let n_chars = self.current_item.chars().count();
         let display_target = if n_chars > max_target_len && max_target_len > 5 {
-            let tail: String = self.current_item.chars().skip(n_chars - (max_target_len - 3)).collect();
+            let tail: String = self
+                .current_item
+                .chars()
+                .skip(n_chars - (max_target_len - 3))
+                .collect();
             format!("...{}", tail)
         } else {
             self.current_item.clone()
@@ -63,7 +67,9 @@ impl ProgressPopup {
                 Span::raw("  "),
                 Span::styled(
                     "Executing Cache Cleanup Operation...",
-                    Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Theme::PRIMARY)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::raw(""),
@@ -71,10 +77,17 @@ impl ProgressPopup {
                 Span::raw("  Completed      : "),
                 Span::styled(
                     format!("{}/{} ({:.0}%)", self.completed, self.total, self.progress),
-                    Style::default().fg(Theme::ACCENT).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Theme::ACCENT)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::raw("  |  Freed: "),
-                Span::styled(freed_str, Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    freed_str,
+                    Style::default()
+                        .fg(Theme::SUCCESS)
+                        .add_modifier(Modifier::BOLD),
+                ),
             ]),
             Line::from(vec![
                 Span::raw("  Current Target : "),
@@ -87,11 +100,13 @@ impl ProgressPopup {
             .border_type(Theme::BORDER_TYPE)
             .border_style(Style::default().fg(Theme::PRIMARY))
             .title(format!(" {} ", self.title))
-            .title_style(Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD));
+            .title_style(
+                Style::default()
+                    .fg(Theme::PRIMARY)
+                    .add_modifier(Modifier::BOLD),
+            );
 
-        let paragraph = Paragraph::new(text)
-            .block(block)
-            .alignment(Alignment::Left);
+        let paragraph = Paragraph::new(text).block(block).alignment(Alignment::Left);
 
         f.render_widget(paragraph, popup_area);
 

@@ -16,7 +16,10 @@ pub fn run(path: Option<PathBuf>) -> Result<()> {
         .unwrap_or_else(|| project_path.clone());
 
     if crate::core::is_container_dir(&project_dir, dirs::home_dir().as_deref()) {
-        bail!("Refusing to track {} as a project; run init inside a project folder", project_path);
+        bail!(
+            "Refusing to track {} as a project; run init inside a project folder",
+            project_path
+        );
     }
 
     let conn = db::connect()?;
@@ -31,7 +34,11 @@ pub fn run(path: Option<PathBuf>) -> Result<()> {
             let found = Scanner::new(ScanConfig::load()?, Vec::new())
                 .scan(std::slice::from_ref(&project_dir), config.scan.max_depth);
             for p in &found {
-                info(&format!("detected {} at {}", p.kind_label().bold(), p.path.display()));
+                info(&format!(
+                    "detected {} at {}",
+                    p.kind_label().bold(),
+                    p.path.display()
+                ));
             }
             found.into_iter().flat_map(|p| p.cache_dirs).collect()
         }
@@ -53,7 +60,10 @@ pub fn run(path: Option<PathBuf>) -> Result<()> {
         bail!("At least one cache directory must be provided");
     }
 
-    let cache_paths: Vec<String> = cache_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect();
+    let cache_paths: Vec<String> = cache_dirs
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
 
     info(&format!("Project: {}", project_name.bold()));
     info(&format!("Path: {}", project_path.bold()));

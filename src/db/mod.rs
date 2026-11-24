@@ -14,7 +14,9 @@ pub fn get_db_path() -> Result<PathBuf> {
     if cfg!(debug_assertions) {
         return Ok(PathBuf::from("nspira.db"));
     }
-    let dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("nspira");
+    let dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("nspira");
     fs::create_dir_all(&dir)?;
     Ok(dir.join("nspira.db"))
 }

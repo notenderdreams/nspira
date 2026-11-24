@@ -1,12 +1,13 @@
 use crate::commands::doctor::ProjectHealth;
 use crate::db;
 use crate::ui::{
-    TerminalGuard, TerminalEvent, poll_event,
+    TerminalEvent, TerminalGuard,
     components::{
         HeaderWidget, TableConfig, TableWidget, build_table_row, confirmation_popup,
         create_doctor_hints, help_popup, project_detail_popup,
     },
     model::UiDoctorItem,
+    poll_event,
     state::{AppState, StatusType},
 };
 use crate::utils::human_readable_size;
@@ -83,7 +84,11 @@ pub fn run_doctor_view(
                 .metric("Total", ui_healths.len().to_string())
                 .metric("Healthy", healthy_count.to_string())
                 .metric("Issues", total_issues.to_string())
-                .search_query(if filter_issues_only { Some("Filter: Issues Only") } else { None })
+                .search_query(if filter_issues_only {
+                    Some("Filter: Issues Only")
+                } else {
+                    None
+                })
                 .render(f, chunks[0]);
 
             // Table
@@ -97,7 +102,11 @@ pub fn run_doctor_view(
                     let path_status = if health.path_exists { "OK" } else { "MISSING" };
 
                     let total_caches = health.cache_dirs.len();
-                    let healthy_caches = health.cache_dirs.iter().filter(|(_, exists, _)| *exists).count();
+                    let healthy_caches = health
+                        .cache_dirs
+                        .iter()
+                        .filter(|(_, exists, _)| *exists)
+                        .count();
                     let cache_status = if total_caches == 0 {
                         "None".to_string()
                     } else if healthy_caches == total_caches {
@@ -127,7 +136,13 @@ pub fn run_doctor_view(
                 .collect();
 
             let table_config = TableConfig::new("Project Health Checks")
-                .headers(vec!["ID", "Name", "Path Status", "Cache Status", "Issues Found"])
+                .headers(vec![
+                    "ID",
+                    "Name",
+                    "Path Status",
+                    "Cache Status",
+                    "Issues Found",
+                ])
                 .constraints(vec![
                     Constraint::Length(6),
                     Constraint::Min(16),
@@ -153,7 +168,11 @@ pub fn run_doctor_view(
             if state.show_help {
                 help_popup(&[("Actions", DOCTOR_KEYS)]).render(f);
             } else if state.show_confirmation {
-                let count = if state.selected_count() > 0 { state.selected_count() } else { 1 };
+                let count = if state.selected_count() > 0 {
+                    state.selected_count()
+                } else {
+                    1
+                };
                 confirmation_popup(
                     "Confirm Removal",
                     "Remove selected broken project(s) from tracking database?",
@@ -161,24 +180,24 @@ pub fn run_doctor_view(
                     Some("This removes the record from tracking; files on disk are untouched."),
                 )
                 .render(f);
-            } else if state.show_detail && !display_healths.is_empty() {
-                if let Some(curr_idx) = table_state.selected() {
-                    if let Some((_, health)) = display_healths.get(curr_idx) {
-                        let cache_details: Vec<(String, u64)> = health
-                            .cache_dirs
-                            .iter()
-                            .map(|(dir, _, sz)| (dir.clone(), *sz))
-                            .collect();
+            } else if state.show_detail
+                && !display_healths.is_empty()
+                && let Some(curr_idx) = table_state.selected()
+                && let Some((_, health)) = display_healths.get(curr_idx)
+            {
+                let cache_details: Vec<(String, u64)> = health
+                    .cache_dirs
+                    .iter()
+                    .map(|(dir, _, sz)| (dir.clone(), *sz))
+                    .collect();
 
-                        project_detail_popup(
-                            &health.project_name,
-                            &health.project_path,
-                            &cache_details,
-                            &human_readable_size(health.total_size),
-                        )
-                        .render(f);
-                    }
-                }
+                project_detail_popup(
+                    &health.project_name,
+                    &health.project_path,
+                    &cache_details,
+                    &human_readable_size(health.total_size),
+                )
+                .render(f);
             }
         })?;
 
@@ -187,14 +206,24 @@ pub fn run_doctor_view(
             match evt {
                 TerminalEvent::Key(key) => {
                     if state.show_help {
-                        if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') | KeyCode::Char('h') | KeyCode::Enter) {
+                        if matches!(
+                            key.code,
+                            KeyCode::Esc
+                                | KeyCode::Char('q')
+                                | KeyCode::Char('?')
+                                | KeyCode::Char('h')
+                                | KeyCode::Enter
+                        ) {
                             state.show_help = false;
                         }
                         continue;
                     }
 
                     if state.show_detail {
-                        if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('i')) {
+                        if matches!(
+                            key.code,
+                            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('i')
+                        ) {
                             state.show_detail = false;
                         }
                         continue;
@@ -234,7 +263,8 @@ pub fn run_doctor_view(
                                     }
                                 }
 
-                                healthy_count = ui_healths.iter().filter(|p| p.issues.is_empty()).count();
+                                healthy_count =
+                                    ui_healths.iter().filter(|p| p.issues.is_empty()).count();
                                 total_issues = ui_healths.iter().map(|p| p.issues.len()).sum();
 
                                 state.selected_items.clear();
@@ -263,7 +293,11 @@ pub fn run_doctor_view(
                         KeyCode::Char('f') => {
                             filter_issues_only = !filter_issues_only;
                             state.set_status(
-                                if filter_issues_only { "Showing issues only" } else { "Showing all projects" },
+                                if filter_issues_only {
+                                    "Showing issues only"
+                                } else {
+                                    "Showing all projects"
+                                },
                                 StatusType::Info,
                             );
                         }
@@ -295,13 +329,13 @@ pub fn run_doctor_view(
                             }
                         }
                         KeyCode::Char(' ') => {
-                            if let Some(sel) = table_state.selected() {
-                                if let Some((orig_idx, _)) = display_healths.get(sel) {
-                                    if state.selected_items.contains(orig_idx) {
-                                        state.selected_items.remove(orig_idx);
-                                    } else {
-                                        state.selected_items.insert(*orig_idx);
-                                    }
+                            if let Some(sel) = table_state.selected()
+                                && let Some((orig_idx, _)) = display_healths.get(sel)
+                            {
+                                if state.selected_items.contains(orig_idx) {
+                                    state.selected_items.remove(orig_idx);
+                                } else {
+                                    state.selected_items.insert(*orig_idx);
                                 }
                             }
                         }

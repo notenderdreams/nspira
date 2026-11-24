@@ -22,17 +22,26 @@ pub fn run(id: Option<i32>) -> Result<()> {
     for project in &projects {
         // Header only for projects that actually have something to clean.
         let mut header_shown = false;
-        let t = clean_project(&conn, project.id, &project.cache_dirs, |path, result| match result {
-            Ok(0) => {}
-            Ok(bytes) => {
-                if !header_shown {
-                    task(&format!("{} (id {})", project.name, project.id));
-                    header_shown = true;
+        let t = clean_project(
+            &conn,
+            project.id,
+            &project.cache_dirs,
+            |path, result| match result {
+                Ok(0) => {}
+                Ok(bytes) => {
+                    if !header_shown {
+                        task(&format!("{} (id {})", project.name, project.id));
+                        header_shown = true;
+                    }
+                    success(&format!(
+                        "cleaned {} ({})",
+                        path,
+                        human_readable_size(*bytes)
+                    ));
                 }
-                success(&format!("cleaned {} ({})", path, human_readable_size(*bytes)));
-            }
-            Err(e) => warn(&format!("failed {}: {}", path, e)),
-        })?;
+                Err(e) => warn(&format!("failed {}: {}", path, e)),
+            },
+        )?;
         totals.add(t);
     }
 
@@ -42,7 +51,11 @@ pub fn run(id: Option<i32>) -> Result<()> {
         success(&format!(
             "Cleaned {} {}, {} freed",
             totals.dirs,
-            if totals.dirs == 1 { "directory" } else { "directories" },
+            if totals.dirs == 1 {
+                "directory"
+            } else {
+                "directories"
+            },
             human_readable_size(totals.bytes)
         ));
     }

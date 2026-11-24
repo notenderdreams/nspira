@@ -3,7 +3,10 @@ use ratatui::{
     Frame,
     layout::{Constraint, Margin, Rect},
     style::Style,
-    widgets::{Block, Borders, Cell, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState},
+    widgets::{
+        Block, Borders, Cell, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
+        TableState,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -61,12 +64,7 @@ impl<'a> TableWidget<'a> {
         self
     }
 
-    pub fn render(
-        self,
-        f: &mut Frame,
-        area: Rect,
-        state: &mut TableState,
-    ) {
+    pub fn render(self, f: &mut Frame, area: Rect, state: &mut TableState) {
         let header = Row::new(
             self.config
                 .headers
@@ -95,14 +93,17 @@ impl<'a> TableWidget<'a> {
         // Scrollbar only when rows overflow: area minus borders, header and its margin.
         let viewport = area.height.saturating_sub(4) as usize;
         if self.total_items > viewport {
-            let mut scrollbar_state = ScrollbarState::new(self.total_items)
-                .position(state.selected().unwrap_or(0));
+            let mut scrollbar_state =
+                ScrollbarState::new(self.total_items).position(state.selected().unwrap_or(0));
             f.render_stateful_widget(
                 Scrollbar::default()
                     .orientation(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(None)
                     .end_symbol(None),
-                area.inner(Margin { vertical: 1, horizontal: 0 }),
+                area.inner(Margin {
+                    vertical: 1,
+                    horizontal: 0,
+                }),
                 &mut scrollbar_state,
             );
         }
@@ -110,11 +111,7 @@ impl<'a> TableWidget<'a> {
 }
 
 /// Utility for building formatted table rows
-pub fn build_table_row<'a>(
-    cells: Vec<String>,
-    is_checked: bool,
-    is_cursor: bool,
-) -> Row<'a> {
+pub fn build_table_row<'a>(cells: Vec<String>, is_checked: bool, is_cursor: bool) -> Row<'a> {
     let base_style = if is_cursor {
         Theme::selected_row_style()
     } else if is_checked {

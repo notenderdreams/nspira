@@ -42,7 +42,10 @@ impl Entry {
             || self.name.to_lowercase().contains(&q)
             || self.path.to_lowercase().contains(&q)
             || self.kind.to_lowercase().contains(&q)
-            || self.caches.iter().any(|c| c.path.to_lowercase().contains(&q))
+            || self
+                .caches
+                .iter()
+                .any(|c| c.path.to_lowercase().contains(&q))
     }
 
     pub fn from_projects(projects: &[Project]) -> Vec<Self> {
@@ -68,7 +71,11 @@ impl Entry {
                 path: p.path.to_string_lossy().into_owned(),
                 kind: p.kind_label(),
                 last_cleaned: None,
-                caches: sized(p.cache_dirs.iter().map(|c| c.to_string_lossy().into_owned())),
+                caches: sized(
+                    p.cache_dirs
+                        .iter()
+                        .map(|c| c.to_string_lossy().into_owned()),
+                ),
             })
             .collect()
     }
@@ -78,14 +85,20 @@ fn sized(paths: impl Iterator<Item = String>) -> Vec<CacheEntry> {
     let paths: Vec<String> = paths.collect();
     paths
         .into_par_iter()
-        .map(|path| CacheEntry { size: get_dir_size(&path), path })
+        .map(|path| CacheEntry {
+            size: get_dir_size(&path),
+            path,
+        })
         .collect()
 }
 
 pub fn format_cleaned(raw: Option<&str>) -> String {
     match raw.map(chrono::DateTime::parse_from_rfc3339) {
         None => "Never".into(),
-        Some(Ok(dt)) => dt.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string(),
+        Some(Ok(dt)) => dt
+            .with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M")
+            .to_string(),
         Some(Err(_)) => raw.unwrap_or_default().chars().take(10).collect(),
     }
 }
@@ -120,7 +133,13 @@ impl UiDoctorItem {
                 let cache_dirs: Vec<(String, bool, u64)> = h
                     .cache_dirs_exist
                     .iter()
-                    .map(|(dir, exists)| (dir.clone(), *exists, if *exists { get_dir_size(dir) } else { 0 }))
+                    .map(|(dir, exists)| {
+                        (
+                            dir.clone(),
+                            *exists,
+                            if *exists { get_dir_size(dir) } else { 0 },
+                        )
+                    })
                     .collect();
                 UiDoctorItem {
                     project_id: h.project_id,

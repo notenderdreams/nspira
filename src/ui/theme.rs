@@ -22,11 +22,15 @@ impl Theme {
     pub const BORDER_TYPE: BorderType = BorderType::Rounded;
 
     pub fn title_style() -> Style {
-        Style::default().fg(Self::PRIMARY).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Self::PRIMARY)
+            .add_modifier(Modifier::BOLD)
     }
 
     pub fn header_style() -> Style {
-        Style::default().fg(Self::SECONDARY).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Self::SECONDARY)
+            .add_modifier(Modifier::BOLD)
     }
 
     /// Cursor row: reversed video works on any palette.
@@ -43,7 +47,9 @@ impl Theme {
     }
 
     pub fn help_key_style() -> Style {
-        Style::default().fg(Self::PRIMARY).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Self::PRIMARY)
+            .add_modifier(Modifier::BOLD)
     }
 
     pub fn help_desc_style() -> Style {

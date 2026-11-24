@@ -89,7 +89,11 @@ pub fn detect_at(dir: &Path, patterns: &[ProjectPattern]) -> Option<DetectedProj
         return None;
     }
     Some(DetectedProject {
-        name: dir.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        name: dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
         path: dir.to_path_buf(),
         kinds,
         cache_dirs,
@@ -123,7 +127,8 @@ pub fn merge_nested(mut projects: Vec<DetectedProject>) -> Vec<DetectedProject> 
 
     for root in &mut roots {
         let all = root.cache_dirs.clone();
-        root.cache_dirs.retain(|c| !all.iter().any(|d| d != c && c.starts_with(d)));
+        root.cache_dirs
+            .retain(|c| !all.iter().any(|d| d != c && c.starts_with(d)));
         root.cache_dirs.sort();
     }
     roots
@@ -145,7 +150,11 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(config: ScanConfig, excluded: Vec<PathBuf>) -> Self {
-        Self { config, excluded, home: dirs::home_dir() }
+        Self {
+            config,
+            excluded,
+            home: dirs::home_dir(),
+        }
     }
 
     pub fn scan(&self, roots: &[PathBuf], max_depth: usize) -> Vec<DetectedProject> {
@@ -175,19 +184,29 @@ impl Scanner {
         // Ignored cache dirs can sit inside an otherwise wanted project.
         let mut projects = merge_nested(detected);
         for p in &mut projects {
-            p.cache_dirs.retain(|c| !self.excluded.iter().any(|x| c.starts_with(x)));
+            p.cache_dirs
+                .retain(|c| !self.excluded.iter().any(|x| c.starts_with(x)));
         }
         projects.retain(|p| !p.cache_dirs.is_empty());
         projects
     }
 
     fn collect_dirs(&self, roots: &[PathBuf], max_depth: usize) -> Vec<PathBuf> {
-        let norm = |s: &str| if cfg!(windows) { s.to_lowercase() } else { s.to_string() };
+        let norm = |s: &str| {
+            if cfg!(windows) {
+                s.to_lowercase()
+            } else {
+                s.to_string()
+            }
+        };
 
         // Single names match any path component; entries with a separator
         // (e.g. ".local/share") match as a path suffix.
-        let (multi, single): (Vec<&String>, Vec<&String>) =
-            self.config.skip_dirs.iter().partition(|s| s.contains('/') || s.contains('\\'));
+        let (multi, single): (Vec<&String>, Vec<&String>) = self
+            .config
+            .skip_dirs
+            .iter()
+            .partition(|s| s.contains('/') || s.contains('\\'));
         let single: HashSet<String> = single.into_iter().map(|s| norm(s)).collect();
         let multi: Vec<PathBuf> = multi.into_iter().map(PathBuf::from).collect();
 
@@ -224,7 +243,11 @@ mod tests {
 
     fn proj(path: &str, kinds: &[&str], caches: &[&str]) -> DetectedProject {
         DetectedProject {
-            name: Path::new(path).file_name().unwrap().to_string_lossy().into(),
+            name: Path::new(path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into(),
             path: path.into(),
             kinds: kinds.iter().map(|s| s.to_string()).collect(),
             cache_dirs: caches.iter().map(PathBuf::from).collect(),
@@ -243,7 +266,10 @@ mod tests {
         assert_eq!(merged[0].kinds, vec!["Node.js", "Rust"]);
         assert_eq!(
             merged[0].cache_dirs,
-            vec![PathBuf::from("/w/app/node_modules"), PathBuf::from("/w/app/src-tauri/target")]
+            vec![
+                PathBuf::from("/w/app/node_modules"),
+                PathBuf::from("/w/app/src-tauri/target")
+            ]
         );
         assert_eq!(merged[1].path, PathBuf::from("/w/app-two"));
     }
@@ -263,7 +289,10 @@ mod tests {
         assert!(is_container_dir(home, Some(home)));
         assert!(is_container_dir(Path::new("/Users"), Some(home)));
         assert!(is_container_dir(Path::new("/"), Some(home)));
-        assert!(!is_container_dir(Path::new("/Users/me/dev/app"), Some(home)));
+        assert!(!is_container_dir(
+            Path::new("/Users/me/dev/app"),
+            Some(home)
+        ));
         assert!(!is_container_dir(Path::new("/Users/other"), Some(home)));
     }
 
@@ -277,8 +306,16 @@ mod tests {
 
         let config = ScanConfig {
             patterns: vec![
-                ProjectPattern { name: "Node.js".into(), identifier: "package.json".into(), cache_dirs: vec!["node_modules".into()] },
-                ProjectPattern { name: "Rust".into(), identifier: "Cargo.toml".into(), cache_dirs: vec!["target".into()] },
+                ProjectPattern {
+                    name: "Node.js".into(),
+                    identifier: "package.json".into(),
+                    cache_dirs: vec!["node_modules".into()],
+                },
+                ProjectPattern {
+                    name: "Rust".into(),
+                    identifier: "Cargo.toml".into(),
+                    cache_dirs: vec!["target".into()],
+                },
             ],
             skip_dirs: vec![],
         };
@@ -306,9 +343,21 @@ mod tests {
         fs::create_dir_all(d.join("obj")).unwrap();
 
         let patterns = vec![
-            ProjectPattern { name: "Node.js".into(), identifier: "package.json".into(), cache_dirs: vec!["node_modules".into()] },
-            ProjectPattern { name: ".NET".into(), identifier: "*.csproj".into(), cache_dirs: vec!["bin".into(), "obj".into()] },
-            ProjectPattern { name: "Rust".into(), identifier: "Cargo.toml".into(), cache_dirs: vec!["target".into()] },
+            ProjectPattern {
+                name: "Node.js".into(),
+                identifier: "package.json".into(),
+                cache_dirs: vec!["node_modules".into()],
+            },
+            ProjectPattern {
+                name: ".NET".into(),
+                identifier: "*.csproj".into(),
+                cache_dirs: vec!["bin".into(), "obj".into()],
+            },
+            ProjectPattern {
+                name: "Rust".into(),
+                identifier: "Cargo.toml".into(),
+                cache_dirs: vec!["target".into()],
+            },
         ];
         let p = detect_at(&d, &patterns).unwrap();
         assert_eq!(p.kinds, vec!["Node.js", ".NET"]);
@@ -325,10 +374,14 @@ mod tests {
             fs::write(p.join("Cargo.toml"), "").unwrap();
         }
         let config = ScanConfig {
-            patterns: vec![ProjectPattern { name: "Rust".into(), identifier: "Cargo.toml".into(), cache_dirs: vec!["target".into()] }],
+            patterns: vec![ProjectPattern {
+                name: "Rust".into(),
+                identifier: "Cargo.toml".into(),
+                cache_dirs: vec!["target".into()],
+            }],
             skip_dirs: vec![".local/share".into()],
         };
-        let found = Scanner::new(config, vec![d.join("ignored")]).scan(&[d.clone()], 5);
+        let found = Scanner::new(config, vec![d.join("ignored")]).scan(std::slice::from_ref(&d), 5);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path, d.join("kept/p"));
         fs::remove_dir_all(&d).unwrap();

@@ -87,7 +87,15 @@ pub fn compute_windows_scan_paths(
 
         // Also check if common project folders exist on the home drive root (e.g. C:\projects, C:\dev)
         if let Some(letter) = home_drive_letter {
-            for folder in &["projects", "dev", "code", "workspace", "src", "repos", "git"] {
+            for folder in &[
+                "projects",
+                "dev",
+                "code",
+                "workspace",
+                "src",
+                "repos",
+                "git",
+            ] {
                 let dev_dir = PathBuf::from(format!(r"{}:\{}", letter, folder));
                 if dev_dir.is_dir() && !paths.contains(&dev_dir) {
                     paths.push(dev_dir);
@@ -106,10 +114,10 @@ pub fn compute_windows_scan_paths(
         };
 
         // If this drive is the one containing the home directory, we've already handled it
-        if let (Some(hl), Some(dl)) = (home_drive_letter, drive_letter) {
-            if hl == dl {
-                continue;
-            }
+        if let (Some(hl), Some(dl)) = (home_drive_letter, drive_letter)
+            && hl == dl
+        {
+            continue;
         }
 
         let drive_buf = drive.to_path_buf();
@@ -183,11 +191,7 @@ mod tests {
     #[test]
     fn test_compute_windows_scan_paths_multiple_drives() {
         let home = Path::new(r"C:\Users\testuser");
-        let drives = [
-            Path::new(r"C:\"),
-            Path::new(r"D:\"),
-            Path::new(r"E:\"),
-        ];
+        let drives = [Path::new(r"C:\"), Path::new(r"D:\"), Path::new(r"E:\")];
         let result = compute_windows_scan_paths(Some(home), &drives);
 
         assert_eq!(result[0], PathBuf::from(r"C:\Users\testuser"));
@@ -200,10 +204,7 @@ mod tests {
     #[test]
     fn test_compute_windows_scan_paths_home_on_d() {
         let home = Path::new(r"D:\Users\testuser");
-        let drives = [
-            Path::new(r"C:\"),
-            Path::new(r"D:\"),
-        ];
+        let drives = [Path::new(r"C:\"), Path::new(r"D:\")];
         let result = compute_windows_scan_paths(Some(home), &drives);
 
         assert_eq!(result[0], PathBuf::from(r"D:\Users\testuser"));
@@ -213,10 +214,7 @@ mod tests {
 
     #[test]
     fn test_compute_windows_scan_paths_no_home() {
-        let drives = [
-            Path::new(r"C:\"),
-            Path::new(r"D:\"),
-        ];
+        let drives = [Path::new(r"C:\"), Path::new(r"D:\")];
         let result = compute_windows_scan_paths(None, &drives);
 
         assert_eq!(result, vec![PathBuf::from(r"C:\"), PathBuf::from(r"D:\")]);

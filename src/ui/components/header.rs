@@ -55,7 +55,9 @@ impl<'a> HeaderWidget<'a> {
         if let Some(tab) = self.active_tab {
             let style = |active: bool| {
                 if active {
-                    Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD | Modifier::REVERSED)
+                    Style::default()
+                        .fg(Theme::PRIMARY)
+                        .add_modifier(Modifier::BOLD | Modifier::REVERSED)
                 } else {
                     Style::default().fg(Theme::TEXT_MUTED)
                 }
@@ -77,10 +79,15 @@ impl<'a> HeaderWidget<'a> {
             if i > 0 {
                 spans.push(Span::styled("  |  ", Style::default().fg(Theme::BORDER)));
             }
-            spans.push(Span::styled(format!("{}: ", label), Style::default().fg(Theme::TEXT_MUTED)));
+            spans.push(Span::styled(
+                format!("{}: ", label),
+                Style::default().fg(Theme::TEXT_MUTED),
+            ));
             spans.push(Span::styled(
                 val.clone(),
-                Style::default().fg(Theme::ACCENT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::ACCENT)
+                    .add_modifier(Modifier::BOLD),
             ));
         }
 
@@ -88,13 +95,12 @@ impl<'a> HeaderWidget<'a> {
             spans.push(Span::styled("  |  ", Style::default().fg(Theme::BORDER)));
             spans.push(Span::styled(
                 format!("Filter: \"{}\"", query),
-                Style::default().fg(Theme::WARNING).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::WARNING)
+                    .add_modifier(Modifier::BOLD),
             ));
         }
 
-        f.render_widget(
-            Paragraph::new(Line::from(spans)).block(block),
-            area,
-        );
+        f.render_widget(Paragraph::new(Line::from(spans)).block(block), area);
     }
 }

@@ -44,7 +44,9 @@ const ACTION_KEYS: &[(&str, &str)] = &[
 ];
 
 fn sorted_order(entries: &[Entry], sort: SortMode, query: &str) -> Vec<usize> {
-    let mut order: Vec<usize> = (0..entries.len()).filter(|&i| entries[i].matches(query)).collect();
+    let mut order: Vec<usize> = (0..entries.len())
+        .filter(|&i| entries[i].matches(query))
+        .collect();
     match sort {
         SortMode::Name => order.sort_by_key(|&i| entries[i].name.to_lowercase()),
         SortMode::Size => order.sort_by_key(|&i| std::cmp::Reverse(entries[i].total_size())),
@@ -90,7 +92,11 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
         guard.terminal_mut().draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Min(5),
+                    Constraint::Length(3),
+                ])
                 .split(f.size());
 
             let filtered_bytes: u64 = order.iter().map(|&i| entries[i].total_size()).sum();
@@ -99,18 +105,28 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
                 .metric("Cache", human_readable_size(filtered_bytes))
                 .metric("Sort", sort.label())
                 .active_tab(tab)
-                .search_query((list.searching || !list.query.is_empty()).then_some(list.query.as_str()))
+                .search_query(
+                    (list.searching || !list.query.is_empty()).then_some(list.query.as_str()),
+                )
                 .render(f, chunks[0]);
 
             match tab {
                 ViewTab::Projects => {
                     let (headers, widths) = tree_columns("Last cleaned");
-                    let rows = tree_rows(&entries, &visible, &list, path_width(chunks[1].width), |e| {
-                        format_cleaned(e.last_cleaned.as_deref())
-                    });
-                    TableWidget::new(TableConfig::new("Projects").headers(headers).constraints(widths))
-                        .rows(rows)
-                        .render(f, chunks[1], &mut list.table);
+                    let rows = tree_rows(
+                        &entries,
+                        &visible,
+                        &list,
+                        path_width(chunks[1].width),
+                        |e| format_cleaned(e.last_cleaned.as_deref()),
+                    );
+                    TableWidget::new(
+                        TableConfig::new("Projects")
+                            .headers(headers)
+                            .constraints(widths),
+                    )
+                    .rows(rows)
+                    .render(f, chunks[1], &mut list.table);
                 }
                 ViewTab::Stats => StatsWidget::new(&entries).render(f, chunks[1]),
             }
@@ -118,21 +134,32 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
             let msg = if !status.0.is_empty() {
                 status.0.clone()
             } else if !list.selected.is_empty() {
-                format!("{} cache dir(s) selected, {}", target_dirs, human_readable_size(target_bytes))
+                format!(
+                    "{} cache dir(s) selected, {}",
+                    target_dirs,
+                    human_readable_size(target_bytes)
+                )
             } else {
                 String::new()
             };
             create_project_hints(&msg, &status.1).render(f, chunks[2]);
 
             match modal {
-                Modal::Help => help_popup(&[("Navigation", TREE_KEYS), ("Actions", ACTION_KEYS)]).render(f),
+                Modal::Help => {
+                    help_popup(&[("Navigation", TREE_KEYS), ("Actions", ACTION_KEYS)]).render(f)
+                }
                 Modal::Detail => {
                     if let Some(node) = cursor {
                         let e = &entries[node.project()];
                         let caches: Vec<(String, u64)> =
                             e.caches.iter().map(|c| (c.path.clone(), c.size)).collect();
-                        project_detail_popup(&e.name, &e.path, &caches, &human_readable_size(e.total_size()))
-                            .render(f);
+                        project_detail_popup(
+                            &e.name,
+                            &e.path,
+                            &caches,
+                            &human_readable_size(e.total_size()),
+                        )
+                        .render(f);
                     }
                 }
                 Modal::Confirm(Action::Clean) => confirmation_popup(
@@ -168,7 +195,10 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
 
         match modal {
             Modal::Help | Modal::Detail => {
-                if matches!(code, KeyCode::Esc | KeyCode::Char('q' | '?' | 'i') | KeyCode::Enter) {
+                if matches!(
+                    code,
+                    KeyCode::Esc | KeyCode::Char('q' | '?' | 'i') | KeyCode::Enter
+                ) {
                     modal = Modal::None;
                 }
                 continue;
@@ -178,12 +208,21 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
                     KeyCode::Char('y') | KeyCode::Enter => {
                         modal = Modal::None;
                         status = match action {
-                            Action::Clean => clean_status(clean_targets(conn, &mut guard, &mut entries, &targets)?),
+                            Action::Clean => clean_status(clean_targets(
+                                conn,
+                                &mut guard,
+                                &mut entries,
+                                &targets,
+                            )?),
                             Action::Untrack => {
-                                let (projects, dirs) = untrack_targets(conn, &mut entries, &targets)?;
+                                let (projects, dirs) =
+                                    untrack_targets(conn, &mut entries, &targets)?;
                                 list.reset();
                                 (
-                                    format!("Untracked {} project(s), {} cache dir(s)", projects, dirs),
+                                    format!(
+                                        "Untracked {} project(s), {} cache dir(s)",
+                                        projects, dirs
+                                    ),
                                     StatusType::Success,
                                 )
                             }
@@ -218,7 +257,11 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
             KeyCode::Char('q') => break,
             KeyCode::Char('?') => modal = Modal::Help,
             KeyCode::Tab => {
-                tab = if tab == ViewTab::Projects { ViewTab::Stats } else { ViewTab::Projects }
+                tab = if tab == ViewTab::Projects {
+                    ViewTab::Stats
+                } else {
+                    ViewTab::Projects
+                }
             }
             KeyCode::Char('1') => tab = ViewTab::Projects,
             KeyCode::Char('2') => tab = ViewTab::Stats,
@@ -251,7 +294,11 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
 }
 
 fn clean_status(t: CleanTotals) -> (String, StatusType) {
-    let mut msg = format!("Cleaned {} dir(s), freed {}", t.dirs, human_readable_size(t.bytes));
+    let mut msg = format!(
+        "Cleaned {} dir(s), freed {}",
+        t.dirs,
+        human_readable_size(t.bytes)
+    );
     if t.failed > 0 {
         msg.push_str(&format!(", {} failed", t.failed));
         return (msg, StatusType::Warning);
@@ -274,7 +321,10 @@ fn clean_targets(
     let mut step = 0;
     for (&p, cs) in targets {
         let Some(id) = entries[p].id else { continue };
-        let paths: Vec<String> = cs.iter().map(|&c| entries[p].caches[c].path.clone()).collect();
+        let paths: Vec<String> = cs
+            .iter()
+            .map(|&c| entries[p].caches[c].path.clone())
+            .collect();
         let freed_before = totals.bytes;
         let mut freed = 0;
         let t = clean_project(conn, id, &paths, |path, result| {

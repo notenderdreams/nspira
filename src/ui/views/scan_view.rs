@@ -50,7 +50,9 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
     let mut status = (String::new(), StatusType::Info);
 
     loop {
-        let order: Vec<usize> = (0..entries.len()).filter(|&i| entries[i].matches(&list.query)).collect();
+        let order: Vec<usize> = (0..entries.len())
+            .filter(|&i| entries[i].matches(&list.query))
+            .collect();
         let visible = list.visible(&entries, &order);
         list.clamp(visible.len());
         let cursor = list.cursor(&visible);
@@ -122,7 +124,10 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
 
         match modal {
             Modal::Help | Modal::Detail => {
-                if matches!(code, KeyCode::Esc | KeyCode::Char('q' | '?' | 'i') | KeyCode::Enter) {
+                if matches!(
+                    code,
+                    KeyCode::Esc | KeyCode::Char('q' | '?' | 'i') | KeyCode::Enter
+                ) {
                     modal = Modal::None;
                 }
                 continue;
@@ -134,7 +139,10 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
                         status = match action {
                             Action::Track => {
                                 let n = track_targets(&conn, &mut entries, &targets)?;
-                                (format!("Now tracking {} project(s)", n), StatusType::Success)
+                                (
+                                    format!("Now tracking {} project(s)", n),
+                                    StatusType::Success,
+                                )
                             }
                             Action::Ignore => {
                                 let n = ignore_targets(&conn, &mut entries, &targets)?;
@@ -171,7 +179,9 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
             KeyCode::Char('q') => break,
             KeyCode::Char('?') => modal = Modal::Help,
             KeyCode::Char('i') if cursor.is_some() => modal = Modal::Detail,
-            KeyCode::Enter | KeyCode::Char('t') if target_dirs > 0 => modal = Modal::Confirm(Action::Track),
+            KeyCode::Enter | KeyCode::Char('t') if target_dirs > 0 => {
+                modal = Modal::Confirm(Action::Track)
+            }
             KeyCode::Char('x') if target_dirs > 0 => modal = Modal::Confirm(Action::Ignore),
             _ => {}
         }
@@ -181,7 +191,11 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
 }
 
 /// Add targeted projects (with only their targeted caches) to tracking.
-fn track_targets(conn: &Connection, entries: &mut Vec<Entry>, targets: &BTreeMap<usize, Vec<usize>>) -> Result<usize> {
+fn track_targets(
+    conn: &Connection,
+    entries: &mut Vec<Entry>,
+    targets: &BTreeMap<usize, Vec<usize>>,
+) -> Result<usize> {
     let mut added = 0;
     for (&p, cs) in targets.iter().rev() {
         let e = &entries[p];
@@ -196,7 +210,11 @@ fn track_targets(conn: &Connection, entries: &mut Vec<Entry>, targets: &BTreeMap
 }
 
 /// Ignore whole projects when fully targeted, otherwise individual cache dirs.
-fn ignore_targets(conn: &Connection, entries: &mut Vec<Entry>, targets: &BTreeMap<usize, Vec<usize>>) -> Result<usize> {
+fn ignore_targets(
+    conn: &Connection,
+    entries: &mut Vec<Entry>,
+    targets: &BTreeMap<usize, Vec<usize>>,
+) -> Result<usize> {
     let mut ignored = 0;
     for (&p, cs) in targets.iter().rev() {
         if cs.len() == entries[p].caches.len() {

@@ -34,19 +34,31 @@ impl<'a> StatsWidget<'a> {
             total_bytes += proj_bytes;
 
             // Detect ecosystem type
-            let proj_type = if proj.path.contains("node") || proj.caches.iter().any(|d| d.path.contains("node_modules")) {
+            let proj_type = if proj.path.contains("node")
+                || proj.caches.iter().any(|d| d.path.contains("node_modules"))
+            {
                 "Node.js"
             } else if proj.caches.iter().any(|d| d.path.contains("target")) {
                 "Rust / Java"
-            } else if proj.caches.iter().any(|d| d.path.contains("build") || d.path.contains(".gradle")) {
+            } else if proj
+                .caches
+                .iter()
+                .any(|d| d.path.contains("build") || d.path.contains(".gradle"))
+            {
                 "Gradle / Mobile"
-            } else if proj.caches.iter().any(|d| d.path.contains("__pycache__") || d.path.contains("venv")) {
+            } else if proj
+                .caches
+                .iter()
+                .any(|d| d.path.contains("__pycache__") || d.path.contains("venv"))
+            {
                 "Python"
             } else {
                 "Custom / Other"
             };
 
-            let entry = type_breakdown.entry(proj_type.to_string()).or_insert((0, 0));
+            let entry = type_breakdown
+                .entry(proj_type.to_string())
+                .or_insert((0, 0));
             entry.0 += 1;
             entry.1 += proj_bytes;
 
@@ -62,7 +74,9 @@ impl<'a> StatsWidget<'a> {
                 Span::raw(" Total Tracked Projects:  "),
                 Span::styled(
                     self.projects.len().to_string(),
-                    Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Theme::PRIMARY)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::raw(""),
@@ -70,7 +84,9 @@ impl<'a> StatsWidget<'a> {
                 Span::raw(" Total Occupied Cache:    "),
                 Span::styled(
                     human_readable_size(total_bytes),
-                    Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Theme::SUCCESS)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::raw(""),
@@ -79,9 +95,17 @@ impl<'a> StatsWidget<'a> {
         if let Some((lp, lp_size)) = largest_project {
             left_lines.push(Line::from(vec![
                 Span::raw(" Largest Cache Project:   "),
-                Span::styled(&lp.name, Style::default().fg(Theme::ACCENT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    &lp.name,
+                    Style::default()
+                        .fg(Theme::ACCENT)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::raw(" ("),
-                Span::styled(human_readable_size(lp_size), Style::default().fg(Theme::SUCCESS)),
+                Span::styled(
+                    human_readable_size(lp_size),
+                    Style::default().fg(Theme::SUCCESS),
+                ),
                 Span::raw(")"),
             ]));
         }
@@ -109,7 +133,10 @@ impl<'a> StatsWidget<'a> {
             };
 
             right_lines.push(Line::from(vec![
-                Span::styled(format!(" - {:<15}", ptype), Style::default().fg(Theme::SECONDARY)),
+                Span::styled(
+                    format!(" - {:<15}", ptype),
+                    Style::default().fg(Theme::SECONDARY),
+                ),
                 Span::raw(format!(" {:>2} proj  | ", count)),
                 Span::styled(
                     format!("{:<9}", human_readable_size(*bytes)),

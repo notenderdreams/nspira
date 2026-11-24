@@ -18,7 +18,10 @@ pub fn run(project_name: &str, cache_dirs: Vec<PathBuf>) -> Result<()> {
         .unwrap_or(&cwd)
         .to_string_lossy()
         .to_string();
-    let cache_paths: Vec<String> = cache_dirs.iter().map(|p| p.to_string_lossy().to_string()).collect();
+    let cache_paths: Vec<String> = cache_dirs
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
 
     info(&format!("Project: {}", project_name.bold()));
     info(&format!("Path: {}", project_path.bold()));

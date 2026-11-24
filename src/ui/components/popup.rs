@@ -66,7 +66,11 @@ impl PopupWidget {
                     .border_type(Theme::BORDER_TYPE)
                     .border_style(Style::default().fg(self.border_color))
                     .title(format!(" {} ", self.title))
-                    .title_style(Style::default().fg(self.border_color).add_modifier(Modifier::BOLD)),
+                    .title_style(
+                        Style::default()
+                            .fg(self.border_color)
+                            .add_modifier(Modifier::BOLD),
+                    ),
             )
             .alignment(self.alignment)
             .wrap(Wrap { trim: false });
@@ -76,12 +80,7 @@ impl PopupWidget {
 
     fn calculate_rect(&self, area: Rect) -> Rect {
         // Calculate max line length to size dialog dynamically
-        let max_content_width = self
-            .content
-            .iter()
-            .map(|l| l.width())
-            .max()
-            .unwrap_or(40) as u16;
+        let max_content_width = self.content.iter().map(|l| l.width()).max().unwrap_or(40) as u16;
 
         let desired_width = (max_content_width + 6)
             .max(self.min_width)
@@ -118,7 +117,9 @@ pub fn confirmation_popup(
             Span::raw("  "),
             Span::styled(
                 action_prompt.into(),
-                Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::TEXT)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::raw(""),
@@ -126,7 +127,9 @@ pub fn confirmation_popup(
             Span::raw("  Selected Target(s): "),
             Span::styled(
                 format!("{} project(s)", item_count),
-                Style::default().fg(Theme::ACCENT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::ACCENT)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
     ];
@@ -137,7 +140,9 @@ pub fn confirmation_popup(
             Span::styled("  ! ", Style::default().fg(Theme::DANGER)),
             Span::styled(
                 warn.to_string(),
-                Style::default().fg(Theme::DANGER).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::DANGER)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]));
     }
@@ -147,12 +152,16 @@ pub fn confirmation_popup(
         Span::raw("  "),
         Span::styled(
             "[y / Enter]",
-            Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Theme::SUCCESS)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" Confirm   ", Style::default().fg(Theme::TEXT)),
         Span::styled(
             "[n / Esc]",
-            Style::default().fg(Theme::DANGER).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Theme::DANGER)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" Cancel", Style::default().fg(Theme::TEXT)),
     ]));
@@ -176,15 +185,28 @@ pub fn project_detail_popup(
     let mut lines = vec![
         Line::from(vec![
             Span::raw("  Project Name : "),
-            Span::styled(project_name.to_string(), Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                project_name.to_string(),
+                Style::default()
+                    .fg(Theme::PRIMARY)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::raw("  Project Path : "),
-            Span::styled(project_path.to_string(), Style::default().fg(Theme::TEXT_MUTED)),
+            Span::styled(
+                project_path.to_string(),
+                Style::default().fg(Theme::TEXT_MUTED),
+            ),
         ]),
         Line::from(vec![
             Span::raw("  Total Cache  : "),
-            Span::styled(total_size_str.to_string(), Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                total_size_str.to_string(),
+                Style::default()
+                    .fg(Theme::SUCCESS)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::styled("  Cache Directories", Theme::header_style()),
     ];
@@ -192,7 +214,10 @@ pub fn project_detail_popup(
     if cache_dirs.is_empty() {
         lines.push(Line::from(vec![
             Span::raw("  "),
-            Span::styled("No active cache directories registered.", Style::default().fg(Theme::TEXT_MUTED)),
+            Span::styled(
+                "No active cache directories registered.",
+                Style::default().fg(Theme::TEXT_MUTED),
+            ),
         ]));
     } else {
         for (dir, size) in cache_dirs {
@@ -233,17 +258,40 @@ pub fn search_input_popup(current_query: &str) -> PopupWidget {
         Line::raw(""),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("Search: ", Style::default().fg(Theme::WARNING).add_modifier(Modifier::BOLD)),
-            Span::styled(current_query.to_string(), Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Search: ",
+                Style::default()
+                    .fg(Theme::WARNING)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                current_query.to_string(),
+                Style::default()
+                    .fg(Theme::TEXT)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("_", Style::default().fg(Theme::PRIMARY)),
         ]),
         Line::raw(""),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("Type characters to filter  |  ", Style::default().fg(Theme::TEXT_MUTED)),
-            Span::styled("[Enter]", Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Type characters to filter  |  ",
+                Style::default().fg(Theme::TEXT_MUTED),
+            ),
+            Span::styled(
+                "[Enter]",
+                Style::default()
+                    .fg(Theme::PRIMARY)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" Apply  |  ", Style::default().fg(Theme::TEXT_MUTED)),
-            Span::styled("[Esc]", Style::default().fg(Theme::DANGER).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "[Esc]",
+                Style::default()
+                    .fg(Theme::DANGER)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" Clear", Style::default().fg(Theme::TEXT_MUTED)),
         ]),
     ];
@@ -271,7 +319,10 @@ pub fn help_popup(sections: &[(&str, &[(&str, &str)])]) -> PopupWidget {
         lines.push(Line::styled(format!("  {}", title), Theme::header_style()));
         for (keys, desc) in items.iter() {
             lines.push(Line::from(vec![
-                Span::styled(format!("    {:<w$}  ", keys, w = key_width), Theme::help_key_style()),
+                Span::styled(
+                    format!("    {:<w$}  ", keys, w = key_width),
+                    Theme::help_key_style(),
+                ),
                 Span::raw(desc.to_string()),
             ]));
         }

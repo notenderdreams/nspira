@@ -22,9 +22,17 @@ fn with_cache_dirs(conn: &Connection, mut project: Project) -> Result<Project> {
 // Projects
 
 /// Insert a project and its cache dirs in one transaction. Returns the new id.
-pub fn add_project(conn: &Connection, name: &str, path: &str, cache_dirs: &[String]) -> Result<i32> {
+pub fn add_project(
+    conn: &Connection,
+    name: &str,
+    path: &str,
+    cache_dirs: &[String],
+) -> Result<i32> {
     let tx = conn.unchecked_transaction()?;
-    tx.execute("INSERT INTO projects (name, path) VALUES (?1, ?2)", params![name, path])?;
+    tx.execute(
+        "INSERT INTO projects (name, path) VALUES (?1, ?2)",
+        params![name, path],
+    )?;
     let id = tx.last_insert_rowid() as i32;
     for dir in cache_dirs {
         tx.execute(
@@ -59,9 +67,15 @@ pub fn get_project_by_path(conn: &Connection, path: &str) -> Result<Option<Proje
 }
 
 pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
-    let mut stmt = conn.prepare("SELECT id, name, path, last_cleaned FROM projects ORDER BY name")?;
-    let projects = stmt.query_map([], project_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
-    projects.into_iter().map(|p| with_cache_dirs(conn, p)).collect()
+    let mut stmt =
+        conn.prepare("SELECT id, name, path, last_cleaned FROM projects ORDER BY name")?;
+    let projects = stmt
+        .query_map([], project_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    projects
+        .into_iter()
+        .map(|p| with_cache_dirs(conn, p))
+        .collect()
 }
 
 pub fn remove_project(conn: &Connection, id: i32) -> Result<bool> {
@@ -89,7 +103,12 @@ pub fn remove_cache_dir(conn: &Connection, project_id: i32, path: &str) -> Resul
 // Cleaning
 
 /// Record a clean run and bump the project's last-cleaned timestamp.
-pub fn record_clean(conn: &Connection, project_id: i32, bytes_freed: u64, dirs_cleaned: usize) -> Result<()> {
+pub fn record_clean(
+    conn: &Connection,
+    project_id: i32,
+    bytes_freed: u64,
+    dirs_cleaned: usize,
+) -> Result<()> {
     let now = Utc::now().to_rfc3339();
     let tx = conn.unchecked_transaction()?;
     tx.execute(
@@ -97,14 +116,19 @@ pub fn record_clean(conn: &Connection, project_id: i32, bytes_freed: u64, dirs_c
          VALUES (?1, ?2, ?3, ?4)",
         params![project_id, now, bytes_freed as i64, dirs_cleaned as i64],
     )?;
-    tx.execute("UPDATE projects SET last_cleaned = ?1 WHERE id = ?2", params![now, project_id])?;
+    tx.execute(
+        "UPDATE projects SET last_cleaned = ?1 WHERE id = ?2",
+        params![now, project_id],
+    )?;
     tx.commit()?;
     Ok(())
 }
 
 pub fn total_bytes_freed(conn: &Connection) -> Result<u64> {
     let total: Option<i64> =
-        conn.query_row("SELECT SUM(size_freed) FROM cleaning_history", [], |r| r.get(0))?;
+        conn.query_row("SELECT SUM(size_freed) FROM cleaning_history", [], |r| {
+            r.get(0)
+        })?;
     Ok(total.unwrap_or(0).max(0) as u64)
 }
 
@@ -123,7 +147,9 @@ pub fn remove_ignored(conn: &Connection, path: &str) -> Result<bool> {
 
 pub fn get_ignored(conn: &Connection) -> Result<Vec<String>> {
     let mut stmt = conn.prepare("SELECT path FROM ignored_paths ORDER BY path")?;
-    let paths = stmt.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<Vec<String>>>()?;
+    let paths = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<Vec<String>>>()?;
     Ok(paths)
 }
 
@@ -154,7 +180,13 @@ mod tests {
         let conn = mem();
         let id = add_project(&conn, "p", "/p", &[]).unwrap();
         record_clean(&conn, id, 100, 2).unwrap();
-        assert!(get_project_by_id(&conn, id).unwrap().unwrap().last_cleaned.is_some());
+        assert!(
+            get_project_by_id(&conn, id)
+                .unwrap()
+                .unwrap()
+                .last_cleaned
+                .is_some()
+        );
         assert_eq!(total_bytes_freed(&conn).unwrap(), 100);
     }
 

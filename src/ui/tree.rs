@@ -128,14 +128,24 @@ impl TreeList {
 
     /// Navigation, expand/collapse, selection and filter keys.
     /// Returns false when the key is not handled here.
-    pub fn handle_key(&mut self, key: KeyCode, entries: &[Entry], visible: &[Node], order: &[usize]) -> bool {
+    pub fn handle_key(
+        &mut self,
+        key: KeyCode,
+        entries: &[Entry],
+        visible: &[Node],
+        order: &[usize],
+    ) -> bool {
         let len = visible.len();
         let cur = self.table.selected().unwrap_or(0);
         let page = 10;
         match key {
-            KeyCode::Down | KeyCode::Char('j') => self.table.select(Some((cur + 1).min(len.saturating_sub(1)))),
+            KeyCode::Down | KeyCode::Char('j') => self
+                .table
+                .select(Some((cur + 1).min(len.saturating_sub(1)))),
             KeyCode::Up | KeyCode::Char('k') => self.table.select(Some(cur.saturating_sub(1))),
-            KeyCode::PageDown => self.table.select(Some((cur + page).min(len.saturating_sub(1)))),
+            KeyCode::PageDown => self
+                .table
+                .select(Some((cur + page).min(len.saturating_sub(1)))),
             KeyCode::PageUp => self.table.select(Some(cur.saturating_sub(page))),
             KeyCode::Home | KeyCode::Char('g') => self.table.select(Some(0)),
             KeyCode::End | KeyCode::Char('G') => self.table.select(Some(len.saturating_sub(1))),
@@ -177,7 +187,8 @@ impl TreeList {
                     Some(Node::Cache(..)) => {}
                     None => {}
                 }
-                self.table.select(Some((cur + 1).min(len.saturating_sub(1))));
+                self.table
+                    .select(Some((cur + 1).min(len.saturating_sub(1))));
             }
             KeyCode::Char('a') => {
                 let all: Vec<(usize, usize)> = order
@@ -261,7 +272,11 @@ pub fn tree_rows(
                 } else {
                     "+ "
                 };
-                let style = if check == Check::None { Style::default() } else { Theme::checked_row_style() };
+                let style = if check == Check::None {
+                    Style::default()
+                } else {
+                    Theme::checked_row_style()
+                };
                 Row::new(vec![
                     Cell::from(mark),
                     Cell::from(format!("{}{}", fold, e.name)),
@@ -276,11 +291,18 @@ pub fn tree_rows(
                 let e = &entries[p];
                 let cache = &e.caches[c];
                 let checked = list.selected.contains(&(p, c));
-                let style = if checked { Theme::checked_row_style() } else { Theme::muted() };
+                let style = if checked {
+                    Theme::checked_row_style()
+                } else {
+                    Theme::muted()
+                };
                 Row::new(vec![
                     Cell::from(if checked { "[x]" } else { "[ ]" }),
                     Cell::from(""),
-                    Cell::from(ellipsize_start(format!("  {}", e.relative(&cache.path)), path_width)),
+                    Cell::from(ellipsize_start(
+                        format!("  {}", e.relative(&cache.path)),
+                        path_width,
+                    )),
                     Cell::from(""),
                     right(human_readable_size(cache.size)),
                     Cell::from(""),
@@ -303,7 +325,12 @@ mod tests {
             path: "/p".into(),
             kind: String::new(),
             last_cleaned: None,
-            caches: (0..n).map(|i| CacheEntry { path: format!("/p/c{}", i), size: 1 }).collect(),
+            caches: (0..n)
+                .map(|i| CacheEntry {
+                    path: format!("/p/c{}", i),
+                    size: 1,
+                })
+                .collect(),
         }
     }
 
@@ -317,7 +344,15 @@ mod tests {
         assert_eq!(v.len(), 2);
         t.handle_key(KeyCode::Right, &entries, &v, &order);
         let v = t.visible(&entries, &order);
-        assert_eq!(v, vec![Node::Project(0), Node::Cache(0, 0), Node::Cache(0, 1), Node::Project(1)]);
+        assert_eq!(
+            v,
+            vec![
+                Node::Project(0),
+                Node::Cache(0, 0),
+                Node::Cache(0, 1),
+                Node::Project(1)
+            ]
+        );
 
         // Space on a project selects all its caches.
         t.handle_key(KeyCode::Char(' '), &entries, &v, &order);
@@ -334,8 +369,14 @@ mod tests {
     fn targets_fall_back_to_cursor() {
         let entries = vec![entry(3)];
         let t = TreeList::new();
-        assert_eq!(t.targets(&entries, Some(Node::Project(0))).get(&0), Some(&vec![0, 1, 2]));
-        assert_eq!(t.targets(&entries, Some(Node::Cache(0, 2))).get(&0), Some(&vec![2]));
+        assert_eq!(
+            t.targets(&entries, Some(Node::Project(0))).get(&0),
+            Some(&vec![0, 1, 2])
+        );
+        assert_eq!(
+            t.targets(&entries, Some(Node::Cache(0, 2))).get(&0),
+            Some(&vec![2])
+        );
     }
 
     #[test]

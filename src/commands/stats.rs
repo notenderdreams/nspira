@@ -19,8 +19,16 @@ pub fn run() -> anyhow::Result<()> {
     println!();
     println!("  {}", "Cache statistics".bold());
     println!("  {:<18} {:>12}", "Projects tracked", project_count);
-    println!("  {:<18} {:>12}", "Current cache", human_readable_size(total_storage_occupied));
-    println!("  {:<18} {:>12}", "Freed all-time", human_readable_size(freed));
+    println!(
+        "  {:<18} {:>12}",
+        "Current cache",
+        human_readable_size(total_storage_occupied)
+    );
+    println!(
+        "  {:<18} {:>12}",
+        "Freed all-time",
+        human_readable_size(freed)
+    );
     println!();
 
     Ok(())

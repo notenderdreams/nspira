@@ -63,7 +63,9 @@ impl<'a> StatusBarWidget<'a> {
             remaining = remaining.saturating_sub(tag_txt.chars().count() + 1);
             line_spans.push(Span::styled(
                 tag_txt,
-                Style::default().fg(color).add_modifier(Modifier::BOLD | Modifier::REVERSED),
+                Style::default()
+                    .fg(color)
+                    .add_modifier(Modifier::BOLD | Modifier::REVERSED),
             ));
 
             // Reserve room for at least the first hint; truncate long messages.
@@ -72,7 +74,9 @@ impl<'a> StatusBarWidget<'a> {
             remaining = remaining.saturating_sub(msg.chars().count() + 2);
             line_spans.push(Span::styled(
                 format!(" {}  ", msg),
-                Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Theme::TEXT)
+                    .add_modifier(Modifier::BOLD),
             ));
         }
 
@@ -83,12 +87,20 @@ impl<'a> StatusBarWidget<'a> {
                 break;
             }
             remaining -= w;
-            line_spans.push(Span::styled(format!("{} ", hint.key), Theme::help_key_style()));
-            line_spans.push(Span::styled(format!("{}  ", hint.desc), Theme::help_desc_style()));
+            line_spans.push(Span::styled(
+                format!("{} ", hint.key),
+                Theme::help_key_style(),
+            ));
+            line_spans.push(Span::styled(
+                format!("{}  ", hint.desc),
+                Theme::help_desc_style(),
+            ));
         }
 
         f.render_widget(
-            Paragraph::new(Line::from(line_spans)).block(block).alignment(Alignment::Left),
+            Paragraph::new(Line::from(line_spans))
+                .block(block)
+                .alignment(Alignment::Left),
             area,
         );
     }
@@ -104,7 +116,10 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// Hotkey bar for the tracked-projects view
-pub fn create_project_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
+pub fn create_project_hints<'a>(
+    status: &'a str,
+    status_type: &'a StatusType,
+) -> StatusBarWidget<'a> {
     StatusBarWidget::new(status, status_type)
         .hint("Space", "Select")
         .hint("l/h", "Expand")
@@ -130,7 +145,10 @@ pub fn create_scan_hints<'a>(status: &'a str, status_type: &'a StatusType) -> St
 }
 
 /// Helper for doctor view hotkeys
-pub fn create_doctor_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
+pub fn create_doctor_hints<'a>(
+    status: &'a str,
+    status_type: &'a StatusType,
+) -> StatusBarWidget<'a> {
     StatusBarWidget::new(status, status_type)
         .hint("Up/Dn", "Nav")
         .hint("d", "Remove Broken")
