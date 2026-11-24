@@ -3,8 +3,7 @@ use std::io::{self, Write};
 
 /// Prompt the user for input
 pub fn ask_input(prompt: &str) -> String {
-    let label = ">>".cyan().bold();
-    print!("{} {}: ", label, prompt);
+    print!("{PAD}{} {}: ", ">".cyan().bold(), prompt);
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -14,31 +13,29 @@ pub fn ask_input(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-/// Print an informational message
+const PAD: &str = "  ";
+
+/// Print an informational message:  `  info: msg`
 pub fn info(msg: &str) {
-    let label = "INFO:".black().on_bright_blue().bold();
-    println!("{} {}", label, msg);
+    println!("{PAD}{} {}", "info:".blue(), msg);
 }
 
-/// Print a success message
+/// Print a success message:  `  ok: msg`
 pub fn success(msg: &str) {
-    let label = "SUCCESS\t:".black().on_bright_green().bold();
-    println!("{} {}", label, msg);
+    println!("{PAD}{} {}", "ok:".green(), msg.bold());
 }
 
-/// Print a warning message
+/// Print a warning to stderr:  `  warn: msg`
 pub fn warn(msg: &str) {
-    let label = "WARNING\t:".black().on_bright_yellow().bold();
-    println!("{} {}", label, msg);
+    eprintln!("{PAD}{} {}", "warn:".yellow(), msg);
 }
 
-/// Print an error message
+/// Print an error to stderr:  `  error: msg`
 pub fn error(msg: &str) {
-    let label = "ERROR\t:".black().on_bright_red().bold();
-    eprintln!("{} {}", label, msg);
+    eprintln!("{PAD}{} {}", "error:".red(), msg);
 }
 
+/// Print a task/progress line:  `  task: msg`
 pub fn task(msg: &str) {
-    let label = "TASK:".black().on_bright_magenta().bold();
-    println!("{} {}", label, msg);
+    println!("{PAD}{} {}", "task:".magenta(), msg);
 }

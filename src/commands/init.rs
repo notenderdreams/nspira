@@ -39,7 +39,7 @@ pub fn run(path: Option<PathBuf>) -> anyhow::Result<()> {
                     let cache_path = project_dir.join(cache);
                     if cache_path.exists() {
                         detected_caches.push(cache_path);
-                        info(&format!("  ✓ Found cache directory: {}", cache.bold()));
+                        info(&format!("  Found cache directory: {}", cache.bold()));
                     }
                 }
                 break;

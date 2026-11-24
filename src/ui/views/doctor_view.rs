@@ -85,7 +85,7 @@ pub fn run_doctor_view(
                     let is_cursor = table_state.selected() == Some(disp_idx);
                     let is_checked = state.is_selected(*orig_idx);
 
-                    let path_status = if health.path_exists { "✓ OK" } else { "✖ MISSING" };
+                    let path_status = if health.path_exists { "OK" } else { "MISSING" };
 
                     let total_caches = health.cache_dirs.len();
                     let healthy_caches = health.cache_dirs.iter().filter(|(_, exists, _)| *exists).count();
@@ -100,7 +100,7 @@ pub fn run_doctor_view(
                     let issue_text = if health.issues.is_empty() {
                         "None".to_string()
                     } else {
-                        format!("⚠️ {} issue(s)", health.issues.len())
+                        format!("{} issue(s)", health.issues.len())
                     };
 
                     build_table_row(
@@ -121,10 +121,10 @@ pub fn run_doctor_view(
                 .headers(vec!["ID", "Name", "Path Status", "Cache Status", "Issues Found"])
                 .constraints(vec![
                     Constraint::Length(6),
-                    Constraint::Percentage(25),
-                    Constraint::Length(15),
-                    Constraint::Length(16),
-                    Constraint::Percentage(30),
+                    Constraint::Min(16),
+                    Constraint::Length(13),
+                    Constraint::Length(14),
+                    Constraint::Min(14),
                 ]);
 
             TableWidget::new(table_config)
@@ -174,7 +174,7 @@ pub fn run_doctor_view(
         })?;
 
         // Controls (16ms tick)
-        if let Some(evt) = poll_event(16)? {
+        if let Some(evt) = poll_event(50)? {
             match evt {
                 TerminalEvent::Key(key) => {
                     if state.show_help {

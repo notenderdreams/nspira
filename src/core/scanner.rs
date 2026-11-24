@@ -61,7 +61,7 @@ impl Scanner {
     }
 
     pub fn scan_multiple(&self, start_paths: &[PathBuf], max_depth: usize) -> Result<Vec<DetectedProject>> {
-        println!("🚀 Starting parallel scan...");
+        crate::utils::logger::task("Starting parallel scan");
 
         // First, collect all directories to scan
         let mut all_dirs = Vec::new();
@@ -107,13 +107,13 @@ impl Scanner {
             }
         }
 
-        println!("📁 Found {} directories to scan", all_dirs.len());
+        crate::utils::logger::info(&format!("Found {} directories to scan", all_dirs.len()));
 
         // Use parallel project detection
         let detected =
             crate::utils::parallel::detect_projects_parallel(&all_dirs, &self.config.patterns);
 
-        println!("✅ Detected {} projects", detected.len());
+        crate::utils::logger::success(&format!("Detected {} projects", detected.len()));
         Ok(detected)
     }
 }

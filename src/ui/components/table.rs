@@ -1,7 +1,7 @@
 use crate::ui::theme::Theme;
 use ratatui::{
     Frame,
-    layout::{Constraint, Rect},
+    layout::{Constraint, Margin, Rect},
     style::Style,
     widgets::{Block, Borders, Cell, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, TableState},
 };
@@ -20,7 +20,7 @@ impl TableConfig {
             title: title.into(),
             headers: Vec::new(),
             constraints: Vec::new(),
-            highlight_symbol: "❯ ".to_string(),
+            highlight_symbol: "> ".to_string(),
         }
     }
 
@@ -100,9 +100,9 @@ impl<'a> TableWidget<'a> {
             f.render_stateful_widget(
                 Scrollbar::default()
                     .orientation(ScrollbarOrientation::VerticalRight)
-                    .begin_symbol(Some("▲"))
-                    .end_symbol(Some("▼")),
-                area,
+                    .begin_symbol(None)
+                    .end_symbol(None),
+                area.inner(Margin { vertical: 1, horizontal: 0 }),
                 &mut scrollbar_state,
             );
         }

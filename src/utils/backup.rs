@@ -63,7 +63,7 @@ impl BackupManager {
                         backed_up_dirs.push(cache_dir.clone());
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to backup {}: {}", cache_dir, e);
+                        crate::utils::logger::warn(&format!("Failed to backup {}: {}", cache_dir, e));
                     }
                 }
             }

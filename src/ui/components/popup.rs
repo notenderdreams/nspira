@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
 pub struct PopupWidget {
@@ -56,8 +56,6 @@ impl PopupWidget {
         let popup_area = self.calculate_rect(area);
 
         // 1. Render backdrop shadow / dimming box over screen
-        let backdrop_block = Block::default().style(Style::default().bg(Color::Rgb(15, 23, 42)));
-        f.render_widget(backdrop_block, popup_area);
         f.render_widget(Clear, popup_area);
 
         // 2. Render main dialog popup paragraph
@@ -70,7 +68,8 @@ impl PopupWidget {
                     .title(format!(" {} ", self.title))
                     .title_style(Style::default().fg(self.border_color).add_modifier(Modifier::BOLD)),
             )
-            .alignment(self.alignment);
+            .alignment(self.alignment)
+            .wrap(Wrap { trim: false });
 
         f.render_widget(popup, popup_area);
     }
@@ -94,8 +93,8 @@ impl PopupWidget {
             .unwrap_or_else(|| (self.content.len() as u16 + 3).max(7));
         let height = computed_height.min(area.height.saturating_sub(2));
 
-        let popup_x = (area.width.saturating_sub(width)) / 2;
-        let popup_y = (area.height.saturating_sub(height)) / 2;
+        let popup_x = area.x + (area.width.saturating_sub(width)) / 2;
+        let popup_y = area.y + (area.height.saturating_sub(height)) / 2;
 
         Rect {
             x: popup_x,
@@ -135,7 +134,7 @@ pub fn confirmation_popup(
     if let Some(warn) = warning {
         lines.push(Line::raw(""));
         lines.push(Line::from(vec![
-            Span::styled("  ⚠️  ", Style::default().fg(Theme::DANGER)),
+            Span::styled("  ! ", Style::default().fg(Theme::DANGER)),
             Span::styled(
                 warn.to_string(),
                 Style::default().fg(Theme::DANGER).add_modifier(Modifier::BOLD),
@@ -187,7 +186,7 @@ pub fn project_detail_popup(
             Span::raw("  Total Cache  : "),
             Span::styled(total_size_str.to_string(), Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD)),
         ]),
-        Line::raw("  ──────────────────────── Cache Directories ────────────────────────"),
+        Line::styled("  Cache Directories", Theme::header_style()),
     ];
 
     if cache_dirs.is_empty() {
@@ -198,7 +197,7 @@ pub fn project_detail_popup(
     } else {
         for (dir, size) in cache_dirs {
             lines.push(Line::from(vec![
-                Span::styled("   • ", Style::default().fg(Theme::ACCENT)),
+                Span::styled("   - ", Style::default().fg(Theme::ACCENT)),
                 Span::styled(dir.clone(), Style::default().fg(Theme::TEXT)),
                 Span::raw(" ("),
                 Span::styled(
@@ -234,16 +233,16 @@ pub fn search_input_popup(current_query: &str) -> PopupWidget {
         Line::raw(""),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("🔍 Search Filter: ", Style::default().fg(Theme::WARNING).add_modifier(Modifier::BOLD)),
+            Span::styled("Search: ", Style::default().fg(Theme::WARNING).add_modifier(Modifier::BOLD)),
             Span::styled(current_query.to_string(), Style::default().fg(Theme::TEXT).add_modifier(Modifier::BOLD)),
-            Span::styled("█", Style::default().fg(Theme::PRIMARY)),
+            Span::styled("_", Style::default().fg(Theme::PRIMARY)),
         ]),
         Line::raw(""),
         Line::from(vec![
             Span::raw("  "),
-            Span::styled("Type characters to filter  •  ", Style::default().fg(Theme::TEXT_MUTED)),
+            Span::styled("Type characters to filter  |  ", Style::default().fg(Theme::TEXT_MUTED)),
             Span::styled("[Enter]", Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
-            Span::styled(" Apply  •  ", Style::default().fg(Theme::TEXT_MUTED)),
+            Span::styled(" Apply  |  ", Style::default().fg(Theme::TEXT_MUTED)),
             Span::styled("[Esc]", Style::default().fg(Theme::DANGER).add_modifier(Modifier::BOLD)),
             Span::styled(" Clear", Style::default().fg(Theme::TEXT_MUTED)),
         ]),
@@ -264,7 +263,7 @@ pub fn help_popup() -> PopupWidget {
             Span::styled("NAVIGATION & SELECTION", Style::default().fg(Theme::PRIMARY).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(vec![
-            Span::styled("   ↑ / k / Down / j ", Style::default().fg(Theme::WARNING)),
+            Span::styled("   Up / k / Down / j ", Style::default().fg(Theme::WARNING)),
             Span::raw(" Move cursor up / down"),
         ]),
         Line::from(vec![

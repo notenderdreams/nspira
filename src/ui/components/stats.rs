@@ -98,7 +98,10 @@ impl<'a> StatsWidget<'a> {
         // Right Panel: Ecosystem Breakdown
         let mut right_lines = vec![Line::raw("")];
 
-        for (ptype, (count, bytes)) in &type_breakdown {
+        let mut breakdown: Vec<_> = type_breakdown.iter().collect();
+        breakdown.sort_by(|a, b| b.1.1.cmp(&a.1.1).then_with(|| a.0.cmp(b.0)));
+
+        for (ptype, (count, bytes)) in breakdown {
             let pct = if total_bytes > 0 {
                 (*bytes as f64 / total_bytes as f64) * 100.0
             } else {
@@ -106,8 +109,8 @@ impl<'a> StatsWidget<'a> {
             };
 
             right_lines.push(Line::from(vec![
-                Span::styled(format!(" • {:<15}", ptype), Style::default().fg(Theme::SECONDARY)),
-                Span::raw(format!(" {:>2} proj  │ ", count)),
+                Span::styled(format!(" - {:<15}", ptype), Style::default().fg(Theme::SECONDARY)),
+                Span::raw(format!(" {:>2} proj  | ", count)),
                 Span::styled(
                     format!("{:<9}", human_readable_size(*bytes)),
                     Style::default().fg(Theme::SUCCESS),

@@ -105,11 +105,11 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
                         .map(|(disp_idx, (orig_idx, proj))| {
                             let is_checked = state.is_selected(*orig_idx);
                             let is_cursor = table_state.selected() == Some(disp_idx);
-                            let marker = if is_checked { "✓" } else { " " };
+                            let marker = if is_checked { "x" } else { " " };
 
                             build_table_row(
                                 vec![
-                                    format!("{} {}", marker, proj.id),
+                                    format!("[{}] {}", marker, proj.id),
                                     proj.name.clone(),
                                     proj.path.clone(),
                                     human_readable_size(proj.total_size),
@@ -125,9 +125,9 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
                     let table_config = TableConfig::new("Projects List")
                         .headers(vec!["ID", "Name", "Path", "Size", "Caches", "Last Cleaned"])
                         .constraints(vec![
-                            Constraint::Length(7),
-                            Constraint::Percentage(20),
-                            Constraint::Percentage(38),
+                            Constraint::Length(9),
+                            Constraint::Min(14),
+                            Constraint::Min(24),
                             Constraint::Length(12),
                             Constraint::Length(8),
                             Constraint::Length(15),
@@ -192,8 +192,8 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
             }
         })?;
 
-        // Fast Event Polling (16ms = ~60 FPS responsiveness)
-        if let Some(evt) = poll_event(16)? {
+        // Fast Event Polling (50ms tick)
+        if let Some(evt) = poll_event(50)? {
             match evt {
                 TerminalEvent::Key(key) => {
                     // Help modal mode
@@ -407,7 +407,7 @@ pub fn run_project_list_view(conn: &Connection) -> Result<()> {
                                 progress_popup = None;
                                 state.selected_items.clear();
                                 state.set_status(
-                                    format!("✓ Cleaned {} project(s) — freed {}", targets.len(), human_readable_size(total_freed)),
+                                    format!("Cleaned {} project(s), freed {}", targets.len(), human_readable_size(total_freed)),
                                     StatusType::Success,
                                 );
                             } else {

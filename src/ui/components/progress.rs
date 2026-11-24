@@ -44,15 +44,15 @@ impl ProgressPopup {
         let popup_area = self.centered_rect(area);
 
         // 1. Render backdrop shadow
-        let backdrop = Block::default().style(Style::default().bg(Color::Rgb(15, 23, 42)));
-        f.render_widget(backdrop, popup_area);
         f.render_widget(Clear, popup_area);
 
         let freed_str = crate::utils::human_readable_size(self.freed_bytes);
 
         let max_target_len = (popup_area.width.saturating_sub(22)) as usize;
-        let display_target = if self.current_item.len() > max_target_len && max_target_len > 5 {
-            format!("...{}", &self.current_item[self.current_item.len() - (max_target_len - 3)..])
+        let n_chars = self.current_item.chars().count();
+        let display_target = if n_chars > max_target_len && max_target_len > 5 {
+            let tail: String = self.current_item.chars().skip(n_chars - (max_target_len - 3)).collect();
+            format!("...{}", tail)
         } else {
             self.current_item.clone()
         };
@@ -73,7 +73,7 @@ impl ProgressPopup {
                     format!("{}/{} ({:.0}%)", self.completed, self.total, self.progress),
                     Style::default().fg(Theme::ACCENT).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw("   │   Freed: "),
+                Span::raw("  |  Freed: "),
                 Span::styled(freed_str, Style::default().fg(Theme::SUCCESS).add_modifier(Modifier::BOLD)),
             ]),
             Line::from(vec![
@@ -115,8 +115,8 @@ impl ProgressPopup {
         let width = (area.width * 60 / 100).max(52).min(area.width);
         let height = 11u16.min(area.height);
 
-        let popup_x = (area.width.saturating_sub(width)) / 2;
-        let popup_y = (area.height.saturating_sub(height)) / 2;
+        let popup_x = area.x + (area.width.saturating_sub(width)) / 2;
+        let popup_y = area.y + (area.height.saturating_sub(height)) / 2;
 
         Rect {
             x: popup_x,

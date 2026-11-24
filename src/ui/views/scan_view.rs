@@ -87,11 +87,11 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
                 .map(|(disp_idx, (orig_idx, proj))| {
                     let is_checked = state.is_selected(*orig_idx);
                     let is_cursor = table_state.selected() == Some(disp_idx);
-                    let marker = if is_checked { "✓" } else { " " };
+                    let marker = if is_checked { "x" } else { " " };
 
                     build_table_row(
                         vec![
-                            marker.to_string(),
+                            format!("[{}]", marker),
                             proj.name.clone(),
                             proj.project_type.clone(),
                             proj.path.to_string_lossy().to_string(),
@@ -107,10 +107,10 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
             let table_config = TableConfig::new("Discovered Projects")
                 .headers(vec!["", "Name", "Type", "Path", "Cache Size", "Caches"])
                 .constraints(vec![
-                    Constraint::Length(3),
-                    Constraint::Percentage(20),
+                    Constraint::Length(5),
+                    Constraint::Min(14),
                     Constraint::Length(12),
-                    Constraint::Percentage(45),
+                    Constraint::Min(24),
                     Constraint::Length(12),
                     Constraint::Length(8),
                 ]);
@@ -164,7 +164,7 @@ pub fn run_scan_view(detected: Vec<DetectedProject>) -> Result<()> {
         })?;
 
         // Fast Event loop (16ms)
-        if let Some(evt) = poll_event(16)? {
+        if let Some(evt) = poll_event(50)? {
             match evt {
                 TerminalEvent::Key(key) => {
                     if state.show_help {

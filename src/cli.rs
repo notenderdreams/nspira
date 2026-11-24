@@ -7,12 +7,7 @@ use utils::logger::*;
 #[command(
     name = "nspira",
     version,
-    before_help = r#"
-    ┌────────────────────────────┐
-    │     🌿  n s p i r a  🌿      │
-    └────────────────────────────┘
-Lightweight cache manager for developers
-    "#
+    about = "Lightweight cache manager for developers"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -112,7 +107,7 @@ impl Cli {
                     }
                     ConfigAction::Reset => {
                         Config::reset()?;
-                        println!("✓ Configuration reset to defaults");
+                        println!("Configuration reset to defaults");
                     }
                 }
             }

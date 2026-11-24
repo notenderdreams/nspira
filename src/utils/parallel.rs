@@ -66,7 +66,7 @@ pub fn clean_caches_parallel(cache_dirs: &[String]) -> Result<u64> {
     // Check for errors
     let error_count = errors.iter().filter(|r| r.is_err()).count();
     if error_count > 0 {
-        eprintln!("Warning: {} cache directories failed to clean", error_count);
+        crate::utils::logger::warn(&format!("{} cache directories failed to clean", error_count));
     }
 
     Ok(total_freed.load(Ordering::Relaxed))
