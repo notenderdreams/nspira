@@ -129,15 +129,23 @@ pub fn merge_nested(mut projects: Vec<DetectedProject>) -> Vec<DetectedProject> 
     roots
 }
 
+/// True for the home directory and its ancestors (incl. filesystem roots).
+/// A stray `~/package.json` must not turn home into one giant project that
+/// swallows every real project under it.
+pub fn is_container_dir(dir: &Path, home: Option<&Path>) -> bool {
+    dir.parent().is_none() || home.is_some_and(|h| h.starts_with(dir))
+}
+
 pub struct Scanner {
     config: ScanConfig,
     /// Subtrees never walked: tracked projects and ignored paths.
     excluded: Vec<PathBuf>,
+    home: Option<PathBuf>,
 }
 
 impl Scanner {
     pub fn new(config: ScanConfig, excluded: Vec<PathBuf>) -> Self {
-        Self { config, excluded }
+        Self { config, excluded, home: dirs::home_dir() }
     }
 
     pub fn scan(&self, roots: &[PathBuf], max_depth: usize) -> Vec<DetectedProject> {
@@ -154,7 +162,9 @@ impl Scanner {
         let detected: Vec<DetectedProject> = dirs
             .par_iter()
             .filter_map(|dir| {
-                let found = detect_at(dir, &self.config.patterns);
+                let found = (!is_container_dir(dir, self.home.as_deref()))
+                    .then(|| detect_at(dir, &self.config.patterns))
+                    .flatten();
                 progress.inc(1);
                 found
             })
@@ -245,6 +255,39 @@ mod tests {
             proj("/w/a/build/x", &["Rust"], &["/w/a/build/x/target"]),
         ]);
         assert_eq!(merged[0].cache_dirs, vec![PathBuf::from("/w/a/build")]);
+    }
+
+    #[test]
+    fn home_and_its_ancestors_are_never_projects() {
+        let home = Path::new("/Users/me");
+        assert!(is_container_dir(home, Some(home)));
+        assert!(is_container_dir(Path::new("/Users"), Some(home)));
+        assert!(is_container_dir(Path::new("/"), Some(home)));
+        assert!(!is_container_dir(Path::new("/Users/me/dev/app"), Some(home)));
+        assert!(!is_container_dir(Path::new("/Users/other"), Some(home)));
+    }
+
+    #[test]
+    fn stray_marker_in_home_does_not_swallow_projects() {
+        let d = tmp("home");
+        fs::write(d.join("package.json"), "{}").unwrap();
+        fs::create_dir_all(d.join("node_modules")).unwrap();
+        fs::create_dir_all(d.join("dev/app/target")).unwrap();
+        fs::write(d.join("dev/app/Cargo.toml"), "").unwrap();
+
+        let config = ScanConfig {
+            patterns: vec![
+                ProjectPattern { name: "Node.js".into(), identifier: "package.json".into(), cache_dirs: vec!["node_modules".into()] },
+                ProjectPattern { name: "Rust".into(), identifier: "Cargo.toml".into(), cache_dirs: vec!["target".into()] },
+            ],
+            skip_dirs: vec![],
+        };
+        let mut scanner = Scanner::new(config, vec![]);
+        scanner.home = Some(d.clone());
+        let found = scanner.scan(std::slice::from_ref(&d), 5);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].path, d.join("dev/app"));
+        fs::remove_dir_all(&d).unwrap();
     }
 
     fn tmp(name: &str) -> PathBuf {

@@ -15,6 +15,10 @@ pub fn run(path: Option<PathBuf>) -> Result<()> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| project_path.clone());
 
+    if crate::core::is_container_dir(&project_dir, dirs::home_dir().as_deref()) {
+        bail!("Refusing to track {} as a project; run init inside a project folder", project_path);
+    }
+
     let conn = db::connect()?;
     if db::get_project_by_path(&conn, &project_path)?.is_some() {
         bail!("{} is already tracked", project_path);
