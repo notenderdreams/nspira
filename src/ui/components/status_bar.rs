@@ -63,7 +63,7 @@ impl<'a> StatusBarWidget<'a> {
             remaining = remaining.saturating_sub(tag_txt.chars().count() + 1);
             line_spans.push(Span::styled(
                 tag_txt,
-                Style::default().fg(Theme::BG_HEADER).bg(color).add_modifier(Modifier::BOLD),
+                Style::default().fg(color).add_modifier(Modifier::BOLD | Modifier::REVERSED),
             ));
 
             // Reserve room for at least the first hint; truncate long messages.
@@ -103,28 +103,27 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
-/// Helper for generating hotkey bar for project manager
+/// Hotkey bar for the tracked-projects view
 pub fn create_project_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
     StatusBarWidget::new(status, status_type)
-        .hint("Up/Dn", "Nav")
         .hint("Space", "Select")
-        .hint("a", "All")
-        .hint("c/Enter", "Clean")
-        .hint("d", "Delete")
+        .hint("l/h", "Expand")
+        .hint("c", "Clean")
+        .hint("d", "Untrack")
         .hint("/", "Filter")
         .hint("s", "Sort")
-        .hint("i", "Details")
+        .hint("Tab", "Stats")
         .hint("?", "Help")
         .hint("q", "Quit")
 }
 
-/// Helper for scan view hotkeys
+/// Hotkey bar for the scan results view
 pub fn create_scan_hints<'a>(status: &'a str, status_type: &'a StatusType) -> StatusBarWidget<'a> {
     StatusBarWidget::new(status, status_type)
-        .hint("Up/Dn", "Nav")
         .hint("Space", "Select")
-        .hint("a", "All")
-        .hint("Enter", "Add Tracked")
+        .hint("l/h", "Expand")
+        .hint("Enter", "Track")
+        .hint("x", "Ignore")
         .hint("/", "Filter")
         .hint("?", "Help")
         .hint("q", "Quit")

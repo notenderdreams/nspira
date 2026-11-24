@@ -1,63 +1,52 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::BorderType;
 
-/// Color palette and design tokens for nspira
+/// ANSI 16 colors only, on the terminal's default background, so the TUI
+/// follows whatever palette (light or dark) the terminal uses.
 pub struct Theme;
 
 impl Theme {
-    // Primary colors
-    pub const PRIMARY: Color = Color::Rgb(56, 189, 248);     // Sky blue
-    pub const SECONDARY: Color = Color::Rgb(192, 132, 252);  // Purple/Lavender
-    pub const ACCENT: Color = Color::Rgb(251, 146, 60);      // Orange accent
+    pub const PRIMARY: Color = Color::Cyan;
+    pub const SECONDARY: Color = Color::Magenta;
+    pub const ACCENT: Color = Color::Yellow;
 
-    // Status colors
-    pub const SUCCESS: Color = Color::Rgb(74, 222, 128);     // Emerald green
-    pub const WARNING: Color = Color::Rgb(250, 204, 21);     // Yellow
-    pub const DANGER: Color = Color::Rgb(248, 113, 113);     // Soft red
-    pub const INFO: Color = Color::Rgb(96, 165, 250);       // Blue
+    pub const SUCCESS: Color = Color::Green;
+    pub const WARNING: Color = Color::Yellow;
+    pub const DANGER: Color = Color::Red;
+    pub const INFO: Color = Color::Blue;
 
-    // Neutral colors
-    pub const TEXT: Color = Color::Rgb(243, 244, 246);       // Light gray text
-    pub const TEXT_MUTED: Color = Color::Rgb(156, 163, 175); // Dim gray
-    pub const BORDER: Color = Color::Rgb(75, 85, 99);        // Dark gray border
-    pub const BORDER_FOCUS: Color = Self::PRIMARY;
-    pub const BG_HEADER: Color = Color::Rgb(30, 41, 59);     // Slate 800
-    pub const HIGHLIGHT_BG: Color = Color::Rgb(51, 65, 85);  // Slate 700
+    pub const TEXT: Color = Color::Reset;
+    pub const TEXT_MUTED: Color = Color::DarkGray;
+    pub const BORDER: Color = Color::DarkGray;
 
-    // Border type
     pub const BORDER_TYPE: BorderType = BorderType::Rounded;
 
-    // Styles
     pub fn title_style() -> Style {
-        Style::default()
-            .fg(Self::PRIMARY)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Self::PRIMARY).add_modifier(Modifier::BOLD)
     }
 
     pub fn header_style() -> Style {
-        Style::default()
-            .fg(Self::SECONDARY)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Self::SECONDARY).add_modifier(Modifier::BOLD)
     }
 
+    /// Cursor row: reversed video works on any palette.
     pub fn selected_row_style() -> Style {
-        Style::default()
-            .bg(Self::HIGHLIGHT_BG)
-            .fg(Self::TEXT)
-            .add_modifier(Modifier::BOLD)
+        Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD)
     }
 
     pub fn checked_row_style() -> Style {
         Style::default().fg(Self::SUCCESS)
     }
 
+    pub fn muted() -> Style {
+        Style::default().fg(Self::TEXT_MUTED)
+    }
+
     pub fn help_key_style() -> Style {
-        Style::default()
-            .fg(Self::WARNING)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Self::PRIMARY).add_modifier(Modifier::BOLD)
     }
 
     pub fn help_desc_style() -> Style {
-        Style::default().fg(Self::TEXT_MUTED)
+        Self::muted()
     }
 }

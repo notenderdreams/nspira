@@ -74,7 +74,6 @@ impl<'a> TableWidget<'a> {
                 .map(|h| Cell::from(h.clone()).style(Theme::header_style()))
                 .collect::<Vec<_>>(),
         )
-        .style(Style::default().bg(Theme::BG_HEADER))
         .height(1)
         .bottom_margin(1);
 
@@ -93,8 +92,9 @@ impl<'a> TableWidget<'a> {
 
         f.render_stateful_widget(table, area, state);
 
-        // Render scrollbar if total items exceed visible viewport
-        if self.total_items > 0 {
+        // Scrollbar only when rows overflow: area minus borders, header and its margin.
+        let viewport = area.height.saturating_sub(4) as usize;
+        if self.total_items > viewport {
             let mut scrollbar_state = ScrollbarState::new(self.total_items)
                 .position(state.selected().unwrap_or(0));
             f.render_stateful_widget(

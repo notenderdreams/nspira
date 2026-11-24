@@ -2,7 +2,7 @@ use crate::ui::theme::Theme;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Gauge, Paragraph},
 };
@@ -104,7 +104,7 @@ impl ProgressPopup {
         };
 
         let gauge = Gauge::default()
-            .gauge_style(Style::default().fg(Theme::SUCCESS).bg(Color::Rgb(30, 41, 59)))
+            .gauge_style(Style::default().fg(Theme::SUCCESS))
             .percent(self.progress.clamp(0.0, 100.0) as u16)
             .label(format!("{:.1}%", self.progress));
 
