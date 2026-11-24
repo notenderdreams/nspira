@@ -85,11 +85,10 @@ Launch interactive TUI to view and manage all tracked projects.
 
 **TUI Features:**
 
-- View all projects with sizes and last cleaned dates
-- Multi-select projects with spacebar
-- Clean selected projects with progress bar
-- Remove projects from tracking
-- View cache directory details
+- Expand a project to see each cache directory and its size
+- Select whole projects or individual cache directories
+- Clean the selection with a progress bar
+- Stop tracking a project or a single cache directory
 - Sort and filter projects
 
 ### `nspira clean [id]`
@@ -118,10 +117,22 @@ Scan your filesystem for projects with cache directories that aren't being track
 
 **Features:**
 
-- Scans from home directory
-- Multi-select interface to add projects
-- Smart pattern matching
-- Skip already tracked projects
+- Scans from home directory (or `nspira scan <path>`)
+- A folder matching several patterns (e.g. Node.js + Rust) gets all their caches
+- Nested projects (monorepo packages, `src-tauri/`) merge into the outermost project
+- Track all or some of a project's cache directories
+- `x` ignores a project or a single cache directory in future scans
+- Tracked and ignored paths are skipped with their whole subtree
+
+### `nspira ignore`
+
+Manage paths that scans skip.
+
+```bash
+nspira ignore list            # Show ignored paths
+nspira ignore add ~/archive   # Skip a folder and everything under it
+nspira ignore remove ~/archive
+```
 
 ### `nspira stats`
 
@@ -157,23 +168,27 @@ nspira config reset   # Reset configuration to defaults
 ### List Command (`nspira list`)
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
-│ ID  Name               Path                 Size    Last Cleaned  │
-│ 1   my-react-app       /home/user/projects  245 MB  2024-01-15    │
-│ 2   rust-project       /home/user/dev       189 MB  2024-01-14    │
-│ ✓ 3 java-app           /home/user/work      567 MB  2024-01-10    │
-└───────────────────────────────────────────────────────────────────┘
+╭ Projects ─────────────────────────────────────────────────────────────╮
+│      Name         Path                Last cleaned        Size  Caches│
+│> [-] - tauri-app  ~/dev/tauri-app     2026-11-20 10:02  1.2 GB       2│
+│  [x]                node_modules                       310 MB         │
+│  [ ]                src-tauri/target                   920 MB         │
+│  [ ] + api        ~/dev/api           Never             88 MB       1│
+╰───────────────────────────────────────────────────────────────────────╯
 ```
 
 **Controls:**
 
-- `↑/↓` or `j/k` - Navigate projects
-- `Space` - Select/deselect project
-- `a` - Select/deselect all projects
-- `Enter` - Clean selected projects
-- `d` - Remove project from tracking
-- `Tab` - Toggle between stats and cache view
-- `q` - Quit
+- `Up/Down` or `j/k` - Move, `g/G` top/bottom, `PgUp/PgDn` page
+- `Right/l` or `Enter` - Expand a project, `Left/h` - collapse
+- `Space` - Select a project (all its caches) or one cache dir
+- `a` - Select all / none
+- `c` - Clean selected caches (or the one under the cursor)
+- `d` - Stop tracking (whole project if fully selected, else just those dirs)
+- `/` - Filter, `s` - sort, `i` - details, `Tab` - stats
+- `?` - Help, `q` - quit
+
+The TUI uses your terminal's 16 ANSI colors, so it follows your terminal theme.
 
 ### Doctor Command (`nspira doctor`)
 
