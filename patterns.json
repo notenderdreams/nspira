@@ -33,7 +33,7 @@
     {
       "name": "Go",
       "identifier": "go.mod",
-      "cache_dirs": ["bin", "pkg"]
+      "cache_dirs": ["bin"]
     },
     {
       "name": "PHP (Composer)",
